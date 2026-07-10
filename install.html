@@ -1,0 +1,136 @@
+<!doctype html>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>clerk.io — install on your website</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+  :root {
+    --void:#05060E; --panel:rgba(15,19,36,.72); --line:rgba(124,134,173,.2);
+    --paper:#E8ECFF; --muted:#8B94BC; --cyan:#22F3EE; --violet:#A78BFA; --gold:#FFB020;
+    --mono:'JetBrains Mono',monospace; --body:'Inter',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--void);color:var(--paper);font-family:var(--body);line-height:1.55;min-height:100vh}
+  body::before{content:'';position:fixed;inset:0;pointer-events:none;
+    background:radial-gradient(900px 500px at 12% -10%,rgba(139,92,246,.14),transparent 60%),
+               radial-gradient(800px 500px at 95% 8%,rgba(34,243,238,.08),transparent 55%)}
+  .wrap{max-width:720px;margin:0 auto;padding:40px 22px 80px;position:relative}
+  h1{font-size:28px;font-weight:600;margin:12px 0 8px}
+  h2{font-size:16px;font-weight:600;margin:28px 0 10px;color:var(--cyan)}
+  p,li{color:var(--muted);font-size:14px}
+  .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--violet)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;margin:14px 0;backdrop-filter:blur(12px)}
+  code,pre{font-family:var(--mono);font-size:12px}
+  pre{background:#0a0c18;border:1px solid var(--line);border-radius:12px;padding:14px;overflow:auto;color:var(--cyan);white-space:pre-wrap}
+  .btn{display:inline-flex;margin-top:10px;padding:10px 16px;border-radius:11px;border:none;cursor:pointer;
+    font-weight:700;background:linear-gradient(120deg,var(--cyan),#14c8c4);color:#032120}
+  input,select{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:#0c0f1c;color:var(--paper);margin:6px 0 12px}
+  label{font-size:12px;color:var(--muted)}
+  .ok{color:var(--cyan);font-size:13px;margin-top:8px}
+  .err{color:#FF3DA6;font-size:13px;margin-top:8px}
+  a{color:var(--violet)}
+  ul{padding-left:18px;margin:8px 0}
+  li{margin:6px 0}
+</style>
+<div class="wrap">
+  <div class="eyebrow">merchant install</div>
+  <h1>Put clerk.io on any website</h1>
+  <p>One script tag. A floating bubble for your customers. Clerk stays in <b style="color:var(--paper)">standby</b> by default — drafting and learning every time a human resolves a case, never guessing when it’s unsure.</p>
+
+  <div class="card">
+    <h2>How it works</h2>
+    <ul>
+      <li><b style="color:var(--paper)">Dangling sign</b> — floating clerk bubble on your site</li>
+      <li><b style="color:var(--paper)">Customer care unit</b> — chat panel that talks to clerk.io backend</li>
+      <li><b style="color:var(--paper)">Standby mode</b> — Clerk always drafts; auto-replies only in <code>live</code> mode when confident</li>
+      <li><b style="color:var(--paper)">Always learning</b> — every human resolution becomes training (exemplars + tone)</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>1. Provision embed key</h2>
+    <p>Uses your admin token (same as Render <code>ADMIN_TOKEN</code>). Creates a merchant row + public widget key.</p>
+    <label>Admin token</label>
+    <input id="adminToken" type="password" placeholder="ADMIN_TOKEN" />
+    <label>Business name</label>
+    <input id="bizName" placeholder="Acme Shop" />
+    <label>Wallet address (X Layer — for escrow later)</label>
+    <input id="wallet" placeholder="0x…" />
+    <label>Mode</label>
+    <select id="mode">
+      <option value="standby" selected>standby (learn only — recommended start)</option>
+      <option value="live">live (auto-reply when confident)</option>
+    </select>
+    <label>Allowed origins (optional, comma-separated; empty = any)</label>
+    <input id="origins" placeholder="https://yoursite.com, https://www.yoursite.com" />
+    <button class="btn" id="provBtn">Generate install snippet</button>
+    <div id="provOut"></div>
+  </div>
+
+  <div class="card">
+    <h2>2. Paste on your site</h2>
+    <p>Put this right before <code>&lt;/body&gt;</code> on every page where support should appear:</p>
+    <pre id="snippet"><!-- generate above to fill --></pre>
+    <button class="btn" id="copyBtn" type="button">Copy snippet</button>
+  </div>
+
+  <div class="card">
+    <h2>3. Teach clerk when humans resolve</h2>
+    <p>From your helpdesk or desk UI, call:</p>
+    <pre>POST /api/widget/learn
+Authorization: Bearer ADMIN_TOKEN
+{
+  "merchantId": "…",
+  "customerMessage": "…",
+  "humanReply": "…",
+  "ticketHash": "optional",
+  "sessionId": "optional"
+}</pre>
+    <p>Or signed webhook <code>POST /webhooks/resolved-by-human</code> with <code>humanReply</code> — Clerk always learns.</p>
+  </div>
+
+  <div class="card">
+    <h2>4. SQL (once)</h2>
+    <p>In Supabase SQL editor run <code>supabase/schema-widget.sql</code> (after the core schemas).</p>
+  </div>
+
+  <p style="margin-top:24px;font-size:12px"><a href="/">← landing</a> · <a href="/portal.html">portal</a> · <a href="/WIDGET.md">full docs</a></p>
+</div>
+<script>
+const base = location.origin;
+document.getElementById('provBtn').onclick = async () => {
+  const out = document.getElementById('provOut');
+  out.className = '';
+  out.textContent = 'Working…';
+  try {
+    const origins = document.getElementById('origins').value.split(',').map(s=>s.trim()).filter(Boolean);
+    const res = await fetch(base + '/admin/widget/provision', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + document.getElementById('adminToken').value.trim(),
+      },
+      body: JSON.stringify({
+        name: document.getElementById('bizName').value.trim(),
+        walletAddress: document.getElementById('wallet').value.trim(),
+        mode: document.getElementById('mode').value,
+        allowedOrigins: origins,
+      }),
+    });
+    const j = await res.json();
+    if (!res.ok) throw new Error(j.error || res.statusText);
+    document.getElementById('snippet').textContent = j.installSnippet;
+    out.className = 'ok';
+    out.textContent = 'Merchant ' + j.merchantId + ' · key ' + j.publicKey + ' · mode ' + j.mode;
+  } catch (e) {
+    out.className = 'err';
+    out.textContent = e.message;
+  }
+};
+document.getElementById('copyBtn').onclick = async () => {
+  const t = document.getElementById('snippet').textContent;
+  await navigator.clipboard.writeText(t);
+  document.getElementById('copyBtn').textContent = 'Copied';
+  setTimeout(()=>document.getElementById('copyBtn').textContent='Copy snippet', 1500);
+};
+</script>

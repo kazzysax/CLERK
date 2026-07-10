@@ -43,6 +43,11 @@ this package contains the current, superseding version of everything.
 | `portal.html` | **Real merchant console**, the ongoing-operations counterpart to onboarding — deposit/withdraw escrow, reopen resolutions, same live chain reads. | Same as above |
 | `reputation.html` | **Public, no-login page.** Reads Clerk's track record live from the contract; links every resolution to the OKX explorer. This is the "verifiable, not claimed" proof artifact — link to it anywhere. | Same as above |
 | `rate.html` | Customer one-tap rating page. No wallet, no crypto shown. Served by `server.mjs` at `/rate/:token`. | Served automatically by the backend |
+| `install.html` | **Merchant install** — provision embed key + copy-paste snippet for any website. | admin token |
+| `public/widget/v1.js` | **Embeddable dangling bubble + chat** for merchant sites. | public key from provision |
+| `widget.mjs` | Widget sessions, standby/live routing, **always-learn** from human resolves. | — |
+| `WIDGET.md` | Integration guide for existing sites. | — |
+| `supabase/schema-widget.sql` | Widget sessions, shadow drafts, learning events, queue. | run after core schemas |
 
 ### How the pages connect
 `clerk-neo.html`, `portal.html`, and `reputation.html` all `import` their

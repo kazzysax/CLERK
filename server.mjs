@@ -39,6 +39,10 @@ import { readFileSync } from "fs";
 import { planSwapToOKB, getQuote, isConfigured as swapConfigured } from "./swap.mjs";
 import { net, TOKENS } from "./xlayer.config.mjs";
 import { handleReply } from "./conversation.mjs";
+import {
+  openSession, handleWidgetMessage, learnFromHuman, provisionWidget,
+  merchantByPublicKey, publicWidgetConfig, installSnippet,
+} from "./widget.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -295,13 +299,35 @@ async function sendRatingLink(merchant, externalId, ticketHash) {
 // ------------------------------------------------------------------
 const app = express();
 app.set("trust proxy", 1);
+// CORS for embeddable widget on merchant websites (any origin; public key gates access)
+app.use((req, res, next) => {
+  const origin = req.get("Origin") || req.get("X-Clerk-Origin") || "*";
+  res.setHeader("Access-Control-Allow-Origin", origin === "null" ? "*" : origin);
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-Clerk-Origin, X-Clerk-Signature, Authorization");
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  if (req.method === "OPTIONS") return res.sendStatus(204);
+  next();
+});
 app.use(express.json({ limit: "256kb", verify: (req, _res, buf) => { req.rawBody = buf; } }));
+
+const widgetCtx = () => ({
+  supabase, send, embed, draftWithConfidence, assignToHuman, log,
+  publicBaseUrl: ENV.PUBLIC_BASE_URL,
+});
 
 app.get("/health", async (_req, res) => {
   try {
     const [block, isPaused] = await Promise.all([provider.getBlockNumber(), ledger.paused()]);
-    res.json({ ok: true, block, contractPaused: isPaused });
+    res.json({ ok: true, block, contractPaused: isPaused, widget: true });
   } catch (e) { res.status(503).json({ ok: false, error: e.message }); }
+});
+
+// Embed script for merchant sites (dangling clerk bubble)
+app.get("/widget/v1.js", (_req, res) => {
+  res.setHeader("Content-Type", "application/javascript; charset=utf-8");
+  res.setHeader("Cache-Control", "public, max-age=300");
+  res.sendFile(path.join(__dirname, "public", "widget", "v1.js"));
 });
 
 // --- Signed webhooks from the ticket system ---
@@ -327,14 +353,35 @@ app.post("/webhooks/ticket-reply", verifyWebhook, rateLimit(120), async (req, re
 });
 
 app.post("/webhooks/resolved-by-human", verifyWebhook, rateLimit(120), async (req, res) => {
-  const { merchantId, externalId } = req.body;
+  const { merchantId, externalId, humanReply, customerMessage } = req.body;
   const { data: t } = await supabase.from("tickets").select("*").eq("merchant_id", merchantId).eq("external_id", externalId).single();
   if (!t) return res.status(404).json({ error: "unknown ticket" });
-  await send(`assist ${externalId}`, "submitResolution", t.ticket_hash, Math.round((t.confidence ?? 0) * 100), false);
+  try {
+    await send(`assist ${externalId}`, "submitResolution", t.ticket_hash, Math.round((t.confidence ?? 0) * 100), false);
+  } catch (e) { log("warn", "assist submit skipped", { err: e.message }); }
   await supabase.from("tickets").update({ status: "pending", resolved_by_clerk: false }).eq("ticket_hash", t.ticket_hash);
   const { data: merchant } = await supabase.from("merchants").select("*").eq("id", merchantId).single();
+  // ALWAYS learn when a human resolves (standby nature)
+  if (humanReply) {
+    let custMsg = customerMessage;
+    if (!custMsg) {
+      const { data: msgs } = await supabase.from("ticket_messages")
+        .select("body").eq("ticket_hash", t.ticket_hash).eq("role", "customer")
+        .order("created_at", { ascending: true }).limit(1);
+      custMsg = msgs?.[0]?.body || "(customer message)";
+    }
+    const { data: shadows } = await supabase.from("shadow_drafts")
+      .select("clerk_draft, confidence").eq("ticket_hash", t.ticket_hash)
+      .order("created_at", { ascending: false }).limit(1);
+    const shadow = shadows?.[0];
+    await learnFromHuman(widgetCtx(), {
+      merchantId, customerMessage: custMsg, humanReply,
+      ticketHash: t.ticket_hash, clerkDraft: shadow?.clerk_draft, clerkConfidence: shadow?.confidence,
+      source: "webhook",
+    });
+  }
   await sendRatingLink(merchant, externalId, t.ticket_hash);
-  res.json({ ok: true });
+  res.json({ ok: true, learned: Boolean(humanReply) });
 });
 
 app.post("/webhooks/reopened", verifyWebhook, rateLimit(120), async (req, res) => {
@@ -409,6 +456,93 @@ app.post("/admin/pause", rateLimit(5), async (req, res) => {
   await send("setPaused", "setPaused", Boolean(req.body.paused));
   log("warn", "circuit breaker toggled", { paused: Boolean(req.body.paused) });
   res.json({ ok: true, paused: Boolean(req.body.paused) });
+});
+
+// ------------------------------------------------------------------
+// 6b. Website widget API (merchant embeds on their own site)
+// ------------------------------------------------------------------
+app.post("/api/widget/session", rateLimit(60), async (req, res) => {
+  try {
+    const origin = req.get("X-Clerk-Origin") || req.get("Origin") || "";
+    const out = await openSession(widgetCtx(), {
+      publicKey: req.body.publicKey,
+      visitorId: req.body.visitorId,
+      pageUrl: req.body.pageUrl,
+      origin,
+    });
+    res.json(out);
+  } catch (e) {
+    log("warn", "widget session failed", { err: e.message });
+    res.status(e.status || 500).json({ error: e.message || "internal" });
+  }
+});
+
+app.post("/api/widget/message", rateLimit(90), async (req, res) => {
+  try {
+    const origin = req.get("X-Clerk-Origin") || req.get("Origin") || "";
+    const out = await handleWidgetMessage(widgetCtx(), {
+      publicKey: req.body.publicKey,
+      sessionToken: req.body.sessionToken,
+      message: req.body.message,
+      origin,
+    });
+    res.json(out);
+  } catch (e) {
+    log("warn", "widget message failed", { err: e.message });
+    res.status(e.status || 500).json({ error: e.message || "internal" });
+  }
+});
+
+/** Desk / ticket system: human closed a case → Clerk always learns. */
+app.post("/api/widget/learn", rateLimit(60), async (req, res) => {
+  try {
+    // Accept either admin bearer OR webhook HMAC (for helpdesks)
+    const auth = req.get("Authorization") || "";
+    const isAdmin = safeEqual(auth, `Bearer ${ENV.ADMIN_TOKEN}`);
+    if (!isAdmin) {
+      const sig = req.get("X-Clerk-Signature");
+      const expected = hmac(req.rawBody, ENV.WEBHOOK_SECRET);
+      if (!sig || !safeEqual(sig, expected)) return res.status(401).json({ error: "unauthorized" });
+    }
+    const out = await learnFromHuman(widgetCtx(), {
+      merchantId: req.body.merchantId,
+      customerMessage: req.body.customerMessage,
+      humanReply: req.body.humanReply,
+      ticketHash: req.body.ticketHash,
+      sessionId: req.body.sessionId,
+      clerkDraft: req.body.clerkDraft,
+      clerkConfidence: req.body.clerkConfidence,
+      source: req.body.source || "human_resolve",
+    });
+    res.json(out);
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message || "internal" });
+  }
+});
+
+/** Provision embed key + install snippet (admin). */
+app.post("/admin/widget/provision", rateLimit(20), async (req, res) => {
+  if (!safeEqual(req.get("Authorization"), `Bearer ${ENV.ADMIN_TOKEN}`)) return res.status(401).json({ error: "unauthorized" });
+  try {
+    const out = await provisionWidget(widgetCtx(), req.body || {});
+    res.json(out);
+  } catch (e) {
+    res.status(e.status || 500).json({ error: e.message || "internal" });
+  }
+});
+
+app.get("/api/widget/config/:publicKey", rateLimit(60), async (req, res) => {
+  try {
+    const m = await merchantByPublicKey(supabase, req.params.publicKey);
+    if (!m) return res.status(404).json({ error: "unknown key" });
+    res.json(publicWidgetConfig(m, ENV.PUBLIC_BASE_URL));
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get("/api/widget/snippet/:publicKey", rateLimit(30), async (req, res) => {
+  res.type("text/plain").send(installSnippet(ENV.PUBLIC_BASE_URL, req.params.publicKey));
 });
 
 // ------------------------------------------------------------------

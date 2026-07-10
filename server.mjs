@@ -60,7 +60,12 @@ const ENV = Object.fromEntries(REQUIRED_ENV.map(k => [k, process.env[k]]));
 // ------------------------------------------------------------------
 // 1. Clients
 // ------------------------------------------------------------------
-const supabase = createClient(ENV.SUPABASE_URL, ENV.SUPABASE_SERVICE_KEY);
+// Realtime is unused (REST + RPC only). Disable it so Node <22 boots without a
+// native WebSocket polyfill on hosts like Render free tier.
+const supabase = createClient(ENV.SUPABASE_URL, ENV.SUPABASE_SERVICE_KEY, {
+  auth: { persistSession: false, autoRefreshToken: false },
+  realtime: { enabled: false },
+});
 // X Layer network: primary RPC from env, plus OKX's secondary endpoint as
 // automatic failover (both defined in xlayer.config.js). Chain 196 mainnet.
 const NET = net(process.env.XLAYER_NETWORK === "testnet" ? "testnet" : "mainnet");

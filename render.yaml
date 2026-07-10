@@ -1,0 +1,42 @@
+# Render Blueprint — ONE Web Service hosts API + all front-end pages.
+# Dashboard: New → Blueprint → connect this repo, or create Web Service manually.
+#
+# Service type: Web Service (NOT Static Site)
+# Why: server.mjs needs Node (webhooks, LLM, chain writes, /rate links).
+# Static Site alone cannot run the backend.
+
+services:
+  - type: web
+    name: clerk
+    runtime: node
+    plan: free
+    region: oregon
+    rootDir: clerk-golive
+    buildCommand: npm install --omit=dev
+    startCommand: node server.mjs
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: XLAYER_NETWORK
+        value: testnet
+      - key: XLAYER_RPC
+        value: https://xlayer-testnet.drpc.org
+      - key: CLERK_LEDGER_ADDRESS
+        value: "0x6020b4475326480da78b3D166C5476639e450837"
+      - key: PUBLIC_BASE_URL
+        sync: false   # set to https://YOUR-SERVICE.onrender.com after first deploy
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: OPERATOR_PRIVATE_KEY
+        sync: false
+      - key: WEBHOOK_SECRET
+        sync: false
+      - key: RATING_TOKEN_SECRET
+        sync: false
+      - key: ADMIN_TOKEN
+        sync: false

@@ -1,0 +1,341 @@
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Clerk — support that pays for itself</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+  :root{
+    --void:#05060E;--void-2:#090B18;--panel:rgba(15,19,36,.7);--panel-2:rgba(22,27,50,.72);
+    --line:rgba(124,134,173,.18);--line-2:rgba(124,134,173,.32);--paper:#E8ECFF;--muted:#8B94BC;--muted-2:#5A6389;
+    --cyan:#22F3EE;--cyan-dim:rgba(34,243,238,.1);--violet:#A78BFA;--violet-2:#8B5CF6;--violet-dim:rgba(139,92,246,.12);
+    --gold:#FFB020;--gold-dim:rgba(255,176,32,.1);--magenta:#FF3DA6;
+    --display:'Inter',sans-serif;--body:'Inter',sans-serif;--mono:'JetBrains Mono',monospace;
+    --glow-cyan:0 0 24px rgba(34,243,238,.35);--glow-violet:0 0 24px rgba(139,92,246,.35);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--void);color:var(--paper);font-family:var(--body);line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  body::before{content:'';position:fixed;inset:0;pointer-events:none;background:radial-gradient(1000px 600px at 15% -10%,rgba(139,92,246,.16),transparent 60%),radial-gradient(900px 600px at 90% 10%,rgba(34,243,238,.1),transparent 55%)}
+  body::after{content:'';position:fixed;inset:0;pointer-events:none;opacity:.5;background-image:linear-gradient(rgba(124,134,173,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(124,134,173,.05) 1px,transparent 1px);background-size:44px 44px;mask-image:radial-gradient(70% 55% at 50% 20%,#000,transparent)}
+  ::selection{background:rgba(34,243,238,.25)}
+  .glass{background:var(--panel);border:1px solid var(--line);border-radius:18px;backdrop-filter:blur(14px)}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 26px}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--violet)}
+  .btn{font-family:var(--body);font-weight:600;font-size:14px;border:1px solid var(--line-2);background:var(--panel-2);color:var(--paper);padding:13px 22px;border-radius:12px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:8px;transition:all .18s}
+  .btn:hover{border-color:var(--cyan);box-shadow:var(--glow-cyan)}
+  .btn.primary{background:linear-gradient(120deg,var(--cyan),#14c8c4);color:#032120;border-color:transparent;font-weight:700}
+  .btn.primary:hover{box-shadow:0 0 34px rgba(34,243,238,.5);transform:translateY(-1px)}
+
+  /* ---------- NAV ---------- */
+  nav{position:sticky;top:0;z-index:30;display:flex;align-items:center;justify-content:space-between;padding:20px 26px;backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+  .brand{display:flex;align-items:center;gap:11px}
+  .orb{width:32px;height:32px;border-radius:50%;background:conic-gradient(from 0deg,var(--cyan),var(--violet),var(--magenta),var(--cyan));position:relative;animation:spin 9s linear infinite}
+  .orb::before{content:'';position:absolute;inset:3px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#10142a,#05060E 70%)}
+  .orb::after{content:'';position:absolute;inset:28%;border-radius:50%;background:radial-gradient(circle,var(--cyan),transparent 70%)}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .brand b{font-family:var(--display);font-size:16px;font-weight:600}
+  nav .navlinks{display:flex;gap:28px;font-size:13.5px;color:var(--muted)}
+  nav .navlinks a{color:inherit;text-decoration:none}
+  nav .navlinks a:hover{color:var(--paper)}
+  @media(max-width:760px){.navlinks{display:none}}
+
+  /* ---------- HERO ---------- */
+  .hero{padding:70px 0 40px;display:grid;grid-template-columns:1.1fr 1fr;gap:50px;align-items:center}
+  .badge{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11.5px;color:var(--cyan);border:1px solid rgba(34,243,238,.35);background:var(--cyan-dim);padding:7px 15px;border-radius:99px;margin-bottom:22px}
+  .badge .dot{width:6px;height:6px;border-radius:50%;background:var(--cyan);box-shadow:0 0 8px var(--cyan);animation:pulse 2s infinite}
+  @keyframes pulse{50%{opacity:.4}}
+  h1{font-family:var(--display);font-weight:600;font-size:clamp(34px,5vw,54px);line-height:1.08;letter-spacing:-0.02em}
+  h1 em{font-style:normal;background:linear-gradient(100deg,var(--cyan),var(--violet));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .lede{color:var(--muted);font-size:16px;max-width:52ch;margin:20px 0 30px;line-height:1.7}
+  .cta-row{display:flex;gap:12px;flex-wrap:wrap}
+  .cta-note{font-family:var(--mono);font-size:11px;color:var(--muted-2);margin-top:14px}
+
+  /* ---------- LIVE MOCK CARD ---------- */
+  .mock-wrap{position:relative;max-width:360px;margin:0 auto}
+  .mock-float{position:absolute;top:-18px;left:24px;display:flex;align-items:center;gap:8px;z-index:2}
+  .mock-float .aitag{font-family:var(--mono);font-size:10px;font-weight:700;background:linear-gradient(120deg,var(--cyan),var(--violet));color:#04101a;padding:4px 10px;border-radius:8px}
+  .mock-float .line{width:16px;height:1px;background:var(--line-2)}
+  .mock-card{margin-top:44px;padding:24px;position:relative}
+  .mock-head{display:flex;align-items:center;justify-content:space-between}
+  .mock-agent{display:flex;align-items:center;gap:12px}
+  .mock-agent .ic{width:32px;height:32px;border-radius:50%;background:conic-gradient(from 0deg,var(--cyan),var(--violet),var(--magenta),var(--cyan));position:relative;flex-shrink:0;animation:spin 9s linear infinite}
+  .mock-agent .ic::before{content:'';position:absolute;inset:3px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#10142a,#05060E 70%)}
+  .mock-agent .ic::after{content:'';position:absolute;inset:26%;border-radius:50%;background:radial-gradient(circle,var(--cyan),transparent 70%)}
+  .mock-agent b{font-size:14.5px;font-weight:600}
+  .mock-agent span{display:block;font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+  .live-chip{font-family:var(--mono);font-size:10px;color:var(--cyan);border:1px solid rgba(34,243,238,.3);background:var(--cyan-dim);padding:4px 10px;border-radius:8px}
+
+  .chat{margin-top:22px;display:flex;flex-direction:column;gap:10px}
+  .brow{display:flex;align-items:flex-end;gap:8px;max-width:88%;min-width:0}
+  .brow.cust{align-self:flex-start}
+  .brow.clerk{align-self:flex-end;flex-direction:row-reverse}
+  .avatar{width:24px;height:24px;border-radius:8px;flex-shrink:0;display:grid;place-items:center;font-family:var(--display);font-weight:700;font-size:10.5px;margin-bottom:2px}
+  .avatar.a-cust{background:var(--void-2);border:1px solid var(--line-2);color:var(--muted)}
+  .avatar.a-clerk{width:24px;height:24px;border-radius:50%;background:conic-gradient(from 0deg,var(--cyan),var(--violet),var(--magenta),var(--cyan));position:relative;flex-shrink:0;margin-bottom:2px;animation:spin 9s linear infinite}
+  .avatar.a-clerk::before{content:'';position:absolute;inset:2px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#10142a,#05060E 70%)}
+  .avatar.a-clerk::after{content:'';position:absolute;inset:26%;border-radius:50%;background:radial-gradient(circle,var(--cyan),transparent 70%)}
+  .bubble{padding:11px 15px;border-radius:16px;font-size:13px;line-height:1.55;animation:bubblein .45s cubic-bezier(.2,.8,.2,1) both;min-width:0;flex:1 1 auto;overflow-wrap:break-word}
+  .bubble.cust{align-self:flex-start;background:var(--void-2);border:1px solid var(--line);border-bottom-left-radius:5px;color:var(--paper)}
+  .bubble.clerk{align-self:flex-end;background:linear-gradient(135deg,rgba(34,243,238,.16),rgba(139,92,246,.16));border:1px solid rgba(34,243,238,.28);border-bottom-right-radius:5px;animation-delay:1.9s}
+  .bubble.cust#thanksBubble{animation-delay:3.1s}
+  @keyframes bubblein{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}
+  .conf-tag{margin-top:9px;display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10.5px;color:var(--cyan)}
+  .conf-tag svg{width:12px;height:12px;flex-shrink:0}
+
+  .typing{align-self:flex-end;display:flex;gap:4px;padding:11px 15px;background:var(--void-2);border:1px solid var(--line);border-radius:16px;border-bottom-right-radius:5px;animation:bubblein .3s ease both, fadeout .3s ease 1.7s forwards}
+  .typing span{width:6px;height:6px;border-radius:50%;background:var(--muted);animation:bounce 1.1s infinite}
+  .typing span:nth-child(2){animation-delay:.15s}.typing span:nth-child(3){animation-delay:.3s}
+  @keyframes bounce{0%,60%,100%{transform:translateY(0);opacity:.5}30%{transform:translateY(-4px);opacity:1}}
+  @keyframes fadeout{to{opacity:0;height:0;padding:0;margin:0;overflow:hidden}}
+
+  .mock-hr{height:1px;background:var(--line);margin:20px 0}
+  .flow-row{display:flex;align-items:center;gap:12px;font-size:12.5px}
+  .flow-row .fic{width:30px;height:30px;border-radius:9px;background:var(--void-2);border:1px solid var(--line);display:grid;place-items:center;color:var(--cyan);flex-shrink:0}
+  .flow-row .ft{flex:1}
+  .flow-row .ft b{display:block;font-weight:600}
+  .flow-row .ft span{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+  .flow-status{font-family:var(--mono);font-size:10px;font-weight:700;padding:3px 9px;border-radius:7px}
+  .flow-status.settled{background:var(--cyan-dim);color:var(--cyan)}
+  .flow-status.pending{background:var(--gold-dim);color:var(--gold);animation:pulse 1.6s infinite}
+  .mock-ticker{margin-top:16px;font-family:var(--mono);font-size:10.5px;color:var(--muted-2);height:16px;overflow:hidden;position:relative}
+  .mock-ticker span{position:absolute;inset:0;animation:tick 6s infinite}
+  @keyframes tick{0%,28%{opacity:1;transform:translateY(0)}33%,100%{opacity:0;transform:translateY(-8px)}}
+  .mock-ticker span:nth-child(2){animation-delay:2s}
+  .mock-ticker span:nth-child(3){animation-delay:4s}
+
+  /* ---------- SECTION HEAD ---------- */
+  .section{padding:80px 0}
+  .section-head{max-width:640px;margin-bottom:46px}
+  .section-head h2{font-family:var(--display);font-weight:600;font-size:clamp(26px,3.6vw,36px);margin:14px 0 14px;letter-spacing:-0.01em}
+  .section-head p{color:var(--muted);font-size:15px}
+
+  /* ---------- FEATURE GRID ---------- */
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+  .fcard{padding:26px}
+  .fcard .fic{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;margin-bottom:18px}
+  .fcard.c1 .fic{background:var(--cyan-dim);color:var(--cyan)}
+  .fcard.c2 .fic{background:var(--violet-dim);color:var(--violet)}
+  .fcard.c3 .fic{background:var(--gold-dim);color:var(--gold)}
+  .fcard h3{font-family:var(--display);font-size:16px;font-weight:600;margin-bottom:9px}
+  .fcard p{color:var(--muted);font-size:13.5px;line-height:1.65}
+  @media(max-width:900px){.grid3{grid-template-columns:1fr}.hero{grid-template-columns:1fr}}
+
+  /* ---------- HOW IT WORKS ---------- */
+  .steps{display:flex;flex-direction:column;gap:0;margin-top:10px}
+  .step{display:grid;grid-template-columns:56px 1fr;gap:20px;padding:22px 0;border-bottom:1px solid var(--line)}
+  .step:last-child{border-bottom:none}
+  .step .num{font-family:var(--display);font-size:22px;font-weight:600;color:var(--muted-2)}
+  .step h4{font-family:var(--display);font-size:15.5px;font-weight:500;margin-bottom:6px}
+  .step p{color:var(--muted);font-size:13.5px;max-width:64ch}
+
+  /* ---------- REPUTATION STRIP (live from chain) ---------- */
+  .rep-strip{padding:30px;display:grid;grid-template-columns:repeat(4,1fr);gap:24px;align-items:center}
+  .rep-item .k{font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+  .rep-item .v{font-family:var(--display);font-size:28px;font-weight:600;margin-top:6px}
+  .rep-item .v.c{color:var(--cyan)}.rep-item .v.v{color:var(--violet)}
+  @media(max-width:760px){.rep-strip{grid-template-columns:1fr 1fr}}
+
+  /* ---------- CTA ---------- */
+  .cta-band{padding:70px 0;text-align:center}
+  .cta-band h2{font-family:var(--display);font-size:clamp(26px,4vw,38px);font-weight:600;margin-bottom:16px}
+  .cta-band p{color:var(--muted);margin-bottom:28px}
+
+  footer{border-top:1px solid var(--line);padding:26px;text-align:center;font-family:var(--mono);font-size:11px;color:var(--muted-2)}
+  footer a{color:var(--violet)}
+</style>
+
+<nav>
+  <div class="brand"><div class="orb"></div><b>Clerk</b></div>
+  <div class="navlinks">
+    <a href="#how">How it works</a>
+    <a href="#pricing">Pricing</a>
+    <a href="reputation.html">Track record</a>
+  </div>
+  <a class="btn primary" href="clerk-neo.html">Hire Clerk →</a>
+</nav>
+
+<div class="wrap hero">
+  <div>
+    <h1>An AI support agent that only gets paid <em>when it actually works.</em></h1>
+    <p class="lede">Clerk answers your customers, escalates instead of guessing, and settles payment through an onchain escrow contract — not a subscription. Resolve, prove it, get paid. Reopen it, and Clerk doesn't.</p>
+    <div class="cta-row">
+      <a class="btn primary" href="clerk-neo.html">Hire Clerk →</a>
+      <a class="btn" href="reputation.html">See the live track record</a>
+    </div>
+    <div class="cta-note">No wallet needed for your customers. Gas + escrow paid in OKB on X Layer.</div>
+  </div>
+
+  <div class="mock-wrap">
+    <div class="mock-float"><span class="aitag">AI</span><span class="line"></span></div>
+
+    <div class="mock-card glass">
+      <div class="mock-head">
+        <div class="mock-agent">
+          <div class="ic"></div>
+          <div><b>Clerk</b><span>support agent · X Layer</span></div>
+        </div>
+        <span class="live-chip">● live</span>
+      </div>
+
+      <div class="chat">
+        <div class="brow cust">
+          <div class="avatar a-cust">🙂</div>
+          <div class="bubble cust"><span>Hi, where's my order? It's been 5 days and the tracking hasn't moved 😕</span></div>
+        </div>
+
+        <div class="brow clerk">
+          <div class="avatar a-clerk"></div>
+          <div class="typing" id="typingDots"><span></span><span></span><span></span></div>
+        </div>
+
+        <div class="brow clerk">
+          <div class="avatar a-clerk"></div>
+          <div class="bubble clerk" id="clerkBubble">
+            <span>Your order shipped Tuesday and is at the Chicago facility — arriving Thursday. Here's your live tracking link!</span>
+            <div class="conf-tag"><svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="currentColor" stroke-width="1.6"/><path d="M6.5 10.2l2.3 2.3 4.7-5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg> 96% confident · Orders API</div>
+          </div>
+        </div>
+
+        <div class="brow cust">
+          <div class="avatar a-cust">🙂</div>
+          <div class="bubble cust" id="thanksBubble"><span>Perfect, thank you!! 🙏</span></div>
+        </div>
+      </div>
+
+      <div class="mock-hr"></div>
+
+      <div class="flow-row">
+        <div class="fic">⛓</div>
+        <div class="ft"><b>0.050 OKB locked in escrow</b><span>submitResolution() · 72h reopen window</span></div>
+        <span class="flow-status pending">PENDING</span>
+      </div>
+
+      <div class="mock-ticker">
+        <span>watching for a reopen…</span>
+        <span>reputation: 4.7★ · 2,300 ratings</span>
+        <span>window closes → payout finalizes</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="wrap section">
+  <div class="section-head">
+    <div class="eyebrow">THE SUPPORT LAYER</div>
+    <h2>A support agent, paid on outcomes, not attention.</h2>
+    <p>Clerk plugs into your ticket queue, drafts answers grounded only in your own docs, and never guesses when it isn't sure — every part of that is enforced, not promised.</p>
+  </div>
+  <div class="grid3">
+    <div class="fcard glass c1">
+      <div class="fic">✦</div>
+      <h3>Resolve or escalate — never guess</h3>
+      <p>Every draft carries a confidence score and its source. High confidence auto-sends. Anything shakier goes to your team with Clerk's draft attached, not a blind reply to your customer.</p>
+    </div>
+    <div class="fcard glass c2">
+      <div class="fic">⛓</div>
+      <h3>Pay per resolution, enforced onchain</h3>
+      <p>Each answer locks its fee in escrow. A 72-hour reopen window has to pass with no dispute before Clerk gets paid — so "resolved" is a fact your money can check, not a claim.</p>
+    </div>
+    <div class="fcard glass c3">
+      <div class="fic">★</div>
+      <h3>Reputation you can verify, not take our word for</h3>
+      <p>Every rating comes from real customers on real resolved tickets, scored with a confidence-weighted average onchain. Read it yourself — nothing here is self-reported.</p>
+    </div>
+  </div>
+</div>
+
+<div class="wrap section">
+  <div class="section-head">
+    <div class="eyebrow">UNDER THE HOOD</div>
+    <h2>The parts most agents don't bother building.</h2>
+    <p>Clerk isn't just a chatbot with a wallet. These are the pieces that make it trustworthy enough to pay automatically.</p>
+  </div>
+  <div class="grid3">
+    <div class="fcard glass c2">
+      <div class="fic">◎</div>
+      <h3>Learns your tone before it ever speaks</h3>
+      <p>Put Clerk in shadow mode and it watches your team handle real tickets — learning your voice, your judgment calls, what's easy versus what needs care. It can draft in your style before it's ever trusted to send.</p>
+    </div>
+    <div class="fcard glass c1">
+      <div class="fic">✎</div>
+      <h3>Knows when it's wrong more than it thinks</h3>
+      <p>Clerk tracks whether its stated confidence actually matches how often it's right — per category, per merchant. If it's overconfident on refunds but great on shipping, the two get different bars automatically.</p>
+    </div>
+    <div class="fcard glass c3">
+      <div class="fic">↻</div>
+      <h3>Spots the pattern, not just the ticket</h3>
+      <p>Fifteen people asking about the same shipping delay this week isn't fifteen problems — it's one. Clerk flags the repeat pattern so you fix the cause, and answers the rest with higher confidence.</p>
+    </div>
+    <div class="fcard glass c2">
+      <div class="fic">★</div>
+      <h3>Two ratings, and one can't fake the other</h3>
+      <p>Customers and merchants both rate Clerk — but a merchant can't rate an interaction unless a real customer already did. No self-graded reputation, ever.</p>
+    </div>
+    <div class="fcard glass c1">
+      <div class="fic">⏻</div>
+      <h3>You can always get your money back</h3>
+      <p>Even if Clerk's operator pauses everything, merchants can still reopen a bad resolution and withdraw their own escrow. That circuit breaker only ever stops new charges — never your exit.</p>
+    </div>
+    <div class="fcard glass c3">
+      <div class="fic">⇄</div>
+      <h3>No OKB? Swap for it, right in onboarding</h3>
+      <p>Hold USDT or USDC instead? Clerk quotes a live swap into OKB through the OKX DEX aggregator — your wallet signs, Clerk never touches the funds.</p>
+    </div>
+  </div>
+</div>
+
+<div class="wrap section" id="how">
+  <div class="section-head">
+    <div class="eyebrow">HOW IT WORKS</div>
+    <h2>From a new ticket to a settled payment.</h2>
+  </div>
+  <div class="steps">
+    <div class="step"><div class="num">01</div><div><h4>A ticket arrives</h4><p>Clerk reads it against your own docs and past tickets — nothing outside what you've taught it.</p></div></div>
+    <div class="step"><div class="num">02</div><div><h4>It drafts, scores, and decides</h4><p>Confident enough → sends and locks its fee in escrow. Not sure → hands it to your team with the draft attached.</p></div></div>
+    <div class="step"><div class="num">03</div><div><h4>The customer can push back</h4><p>A reply saying it didn't work auto-reopens the resolution — Clerk's own payout is voided, no dispute form needed.</p></div></div>
+    <div class="step"><div class="num">04</div><div><h4>The window closes, payment settles</h4><p>No reopen in 72 hours → escrow releases and the resolution becomes part of Clerk's permanent, public track record.</p></div></div>
+  </div>
+</div>
+
+<div class="wrap section" style="padding-top:0">
+  <div class="rep-strip glass" id="repStrip">
+    <div class="rep-item"><div class="k">Customer rating</div><div class="v c" id="rCust">—</div></div>
+    <div class="rep-item"><div class="k">Merchant rating</div><div class="v v" id="rMerch">—</div></div>
+    <div class="rep-item"><div class="k">Resolved solo</div><div class="v" id="rSolo">—</div></div>
+    <div class="rep-item"><div class="k">Paid to Clerk</div><div class="v c" id="rPaid">—</div></div>
+  </div>
+</div>
+
+<div class="wrap cta-band">
+  <h2>Give your queue an agent that pays its own way.</h2>
+  <p>Onboard in minutes. Fund escrow in OKB. Watch it work on X Layer.</p>
+  <a class="btn primary" href="clerk-neo.html">Hire Clerk →</a>
+</div>
+
+<footer>Clerk runs on X Layer (OKX) · <a href="reputation.html">public track record</a> · <a href="portal.html">merchant console</a></footer>
+
+<script>
+  window.CLERK_NETWORK = "testnet";
+  window.CLERK_CONTRACT = "0x6020b4475326480da78b3D166C5476639e450837";
+</script>
+<script type="module">
+  import { ethers } from "https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.min.js";
+  import { activeNet } from "./xlayer.config.mjs";
+  const net = activeNet();
+  const CONTRACT = window.CLERK_CONTRACT || "0x0000000000000000000000000000000000000000";
+  const ABI = ["function trackRecord() view returns (uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256)"];
+  (async () => {
+    if (CONTRACT === "0x0000000000000000000000000000000000000000") return; // strip stays "—" until deployed
+    try {
+      let provider;
+      for (const url of [net.rpc, net.rpcFallback].filter(Boolean)) {
+        try { provider = new ethers.JsonRpcProvider(url, net.chainId); await provider.getBlockNumber(); break; } catch {}
+      }
+      if (!provider) return;
+      const ledger = new ethers.Contract(CONTRACT, ABI, provider);
+      const tr = await ledger.trackRecord();
+      document.getElementById('rCust').textContent = (Number(tr[4])/100).toFixed(2) + '★';
+      document.getElementById('rMerch').textContent = (Number(tr[6])/100).toFixed(2) + '★';
+      document.getElementById('rSolo').textContent = Number(tr[0]).toLocaleString();
+      document.getElementById('rPaid').textContent = Number(ethers.formatEther(tr[3])).toFixed(3) + ' OKB';
+    } catch {}
+  })();
+</script>

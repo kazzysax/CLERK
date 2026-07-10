@@ -1,0 +1,208 @@
+<!doctype html>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Clerk — verified track record on X Layer</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+  :root {
+    --void:#05060E; --void-2:#090B18; --panel:rgba(15,19,36,.7); --line:rgba(124,134,173,.18);
+    --line-2:rgba(124,134,173,.32); --paper:#E8ECFF; --muted:#8B94BC; --muted-2:#5A6389;
+    --cyan:#22F3EE; --violet:#A78BFA; --gold:#FFB020; --magenta:#FF3DA6;
+    --display:'Inter',sans-serif; --body:'Inter',sans-serif; --mono:'JetBrains Mono',monospace;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--void); color:var(--paper); font-family:var(--body); line-height:1.55; -webkit-font-smoothing:antialiased; min-height:100vh; }
+  body::before { content:''; position:fixed; inset:0; pointer-events:none;
+    background: radial-gradient(900px 500px at 15% -10%, rgba(139,92,246,.14), transparent 60%), radial-gradient(800px 500px at 90% 5%, rgba(34,243,238,.09), transparent 55%); }
+  .wrap { max-width:860px; margin:0 auto; padding:40px 22px 70px; position:relative; }
+  header { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:8px; flex-wrap:wrap; }
+  .brand { display:flex; align-items:center; gap:13px; }
+  .orb { width:42px; height:42px; border-radius:50%; background:conic-gradient(from 0deg,var(--cyan),var(--violet),var(--magenta),var(--cyan)); position:relative; animation:spin 9s linear infinite; }
+  .orb::before { content:''; position:absolute; inset:3px; border-radius:50%; background:radial-gradient(circle at 35% 30%,#10142a,#05060E 70%); }
+  .orb::after { content:''; position:absolute; inset:30%; border-radius:50%; background:radial-gradient(circle,var(--cyan),transparent 70%); }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .brand h1 { font-family:var(--display); font-size:20px; font-weight:600; }
+  .brand .sub { font-family:var(--mono); font-size:10px; color:var(--muted); }
+  .verified { font-family:var(--mono); font-size:10.5px; color:var(--cyan); border:1px solid rgba(34,243,238,.35); background:rgba(34,243,238,.08); padding:6px 12px; border-radius:8px; display:flex; align-items:center; gap:7px; }
+  .verified .dot { width:6px; height:6px; border-radius:50%; background:var(--cyan); box-shadow:0 0 8px var(--cyan); }
+  .lede { color:var(--muted); font-size:14px; margin:14px 0 30px; max-width:60ch; }
+  .lede b { color:var(--paper); font-weight:600; }
+
+  .scores { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
+  .scard { background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:24px; backdrop-filter:blur(12px); position:relative; overflow:hidden; }
+  .scard::after { content:''; position:absolute; inset:0; border-radius:18px; padding:1px; background:linear-gradient(140deg,rgba(34,243,238,.4),rgba(139,92,246,.3),transparent); -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0); -webkit-mask-composite:xor; mask-composite:exclude; pointer-events:none; }
+  .scard .lbl { font-family:var(--mono); font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); }
+  .scard .big { font-family:var(--display); font-size:52px; font-weight:600; line-height:1.05; margin:8px 0 2px; }
+  .scard.cust .big { color:var(--cyan); text-shadow:0 0 26px rgba(34,243,238,.4); }
+  .scard.merch .big { color:var(--violet); text-shadow:0 0 26px rgba(139,92,246,.4); }
+  .scard .of { font-size:15px; color:var(--muted); }
+  .scard .n { font-family:var(--mono); font-size:11px; color:var(--muted-2); margin-top:6px; }
+
+  .stat-row { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:26px; }
+  .stat { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:15px 16px; backdrop-filter:blur(10px); }
+  .stat .k { font-family:var(--mono); font-size:9.5px; letter-spacing:.09em; text-transform:uppercase; color:var(--muted-2); }
+  .stat .v { font-family:var(--display); font-size:24px; font-weight:600; margin-top:5px; }
+  .stat .v.c { color:var(--cyan); } .stat .v.g { color:var(--gold); } .stat .v.m { color:var(--magenta); }
+
+  .section-t { font-family:var(--display); font-size:14px; font-weight:500; margin:0 0 12px; display:flex; align-items:center; gap:9px; }
+  .section-t .chip { font-family:var(--mono); font-size:9px; background:rgba(139,92,246,.14); color:var(--violet); border:1px solid rgba(139,92,246,.3); padding:2px 8px; border-radius:6px; }
+  .ledger { background:var(--panel); border:1px solid var(--line); border-radius:16px; overflow:hidden; backdrop-filter:blur(10px); }
+  .lrow { display:grid; grid-template-columns:104px 1fr 54px 78px 92px; gap:12px; align-items:center; padding:12px 16px; border-bottom:1px solid var(--line); font-family:var(--mono); font-size:11px; }
+  .lrow:last-child { border-bottom:none; }
+  .lrow .hash { color:var(--violet); text-decoration:none; }
+  .lrow .hash:hover { text-decoration:underline; }
+  .lrow .kind { color:var(--paper); font-family:var(--body); font-size:12px; }
+  .lrow .kind.assist::before { content:'⇄ '; color:var(--gold); }
+  .lrow .conf { color:var(--muted); }
+  .lrow .rate { color:var(--cyan); }
+  .lrow .pay { color:var(--cyan); text-align:right; }
+  .lrow.reopened .pay { color:var(--magenta); text-decoration:line-through; }
+  .lstate { text-align:center; font-size:8.5px; font-weight:700; letter-spacing:.05em; padding:2px 6px; border-radius:5px; }
+  .lstate.final { background:rgba(34,243,238,.12); color:var(--cyan); }
+  .lstate.reopened { background:rgba(255,61,166,.12); color:var(--magenta); }
+
+  .foot { margin-top:26px; font-family:var(--mono); font-size:10.5px; color:var(--muted-2); line-height:1.7; }
+  .foot a { color:var(--violet); }
+  .contract-line { font-family:var(--mono); font-size:11px; color:var(--muted); margin-top:8px; word-break:break-all; }
+  .contract-line a { color:var(--cyan); text-decoration:none; }
+
+  .loading { text-align:center; color:var(--muted); font-family:var(--mono); font-size:12px; padding:40px; }
+  .err { background:rgba(255,176,32,.08); border:1px solid rgba(255,176,32,.3); border-radius:12px; padding:16px; font-size:12.5px; color:var(--gold); font-family:var(--mono); }
+  @media (max-width:640px) { .scores,.stat-row{grid-template-columns:1fr 1fr;} .lrow{grid-template-columns:80px 1fr 70px;} .lrow .conf,.lrow .rate{display:none;} }
+  @media (prefers-reduced-motion:reduce){ .orb{animation:none;} }
+</style>
+
+<div class="wrap">
+  <header>
+    <a class="brand" href="/" style="text-decoration:none;color:inherit">
+      <div class="orb"></div>
+      <div>
+        <h1>Clerk</h1>
+        <div class="sub">autonomous support agent</div>
+      </div>
+    </a>
+    <div style="display:flex;gap:10px;align-items:center">
+      <a href="/portal" style="text-decoration:none;font-family:var(--mono);font-size:11px;color:var(--muted)">merchant console →</a>
+      <div class="verified"><span class="dot"></span> LIVE FROM X LAYER · CHAIN 196</div>
+    </div>
+  </header>
+
+  <p class="lede">This page reads <b>directly from the ClerkLedger contract</b> on X Layer — nothing here is self-reported. Every number is computed onchain from resolutions that survived their reopen window, rated only by the customers Clerk actually served. Verify any row on the OKX explorer.</p>
+
+  <div id="content"><div class="loading">Reading track record from X Layer…</div></div>
+</div>
+
+<script>
+  window.CLERK_NETWORK = "testnet";
+  window.CLERK_CONTRACT = "0x6020b4475326480da78b3D166C5476639e450837";
+</script>
+<script type="module">
+  import { ethers } from "https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.min.js";
+  import { XLAYER as XL, LEDGER_ABI, activeNet } from "./xlayer.config.mjs";
+
+  // --- Config, imported from the shared module (not duplicated) ---
+  const net = activeNet();
+  const NET = {
+    chainId: net.chainId,
+    name: net.name,
+    rpc: net.rpc,
+    rpcFallback: net.rpcFallback,
+    explorerTx: net.explorerTx,
+    explorerAddr: net.explorerAddr,
+  };
+  // Set to the deployed ClerkLedgerV2 address:
+  const CONTRACT = window.CLERK_CONTRACT || "0x0000000000000000000000000000000000000000";
+  const ABI = LEDGER_ABI;
+
+  const $ = s => document.querySelector(s);
+  const okb = wei => Number(ethers.formatEther(wei));
+  const centi = c => (Number(c) / 100).toFixed(2);
+
+  async function getProvider() {
+    for (const url of [NET.rpc, NET.rpcFallback]) {
+      try { const p = new ethers.JsonRpcProvider(url, NET.chainId); await p.getBlockNumber(); return p; } catch {}
+    }
+    throw new Error("Both X Layer RPC endpoints are unreachable right now.");
+  }
+
+  function stars(n) { let s=""; for(let i=1;i<=5;i++) s += i<=Math.round(n) ? "★" : "☆"; return s; }
+
+  async function load() {
+    if (CONTRACT === "0x0000000000000000000000000000000000000000") {
+      $("#content").innerHTML = `<div class="err">No contract address set. Deploy ClerkLedgerV2 and set <b>window.CLERK_CONTRACT</b> (or edit CONTRACT in this file) to the deployed address on X Layer.</div>`;
+      return;
+    }
+    let provider, ledger;
+    try { provider = await getProvider(); ledger = new ethers.Contract(CONTRACT, ABI, provider); }
+    catch (e) { $("#content").innerHTML = `<div class="err">${e.message}</div>`; return; }
+
+    let tr;
+    try { tr = await ledger.trackRecord(); }
+    catch (e) { $("#content").innerHTML = `<div class="err">Couldn't read the contract at ${CONTRACT}. Is the address correct for ${NET.name}?</div>`; return; }
+
+    const solo = Number(tr[0]), assisted = Number(tr[1]), reopened = Number(tr[2]);
+    const paidOut = okb(tr[3]);
+    const custScore = centi(tr[4]), custN = Number(tr[5]);
+    const merchScore = centi(tr[6]), merchN = Number(tr[7]);
+    const total = solo + assisted;
+    const soloRate = total ? Math.round(solo / total * 100) : 0;
+
+    // Recent finalized resolutions from events (last ~5000 blocks).
+    let rows = "";
+    try {
+      const head = await provider.getBlockNumber();
+      const from = Math.max(0, head - 5000);
+      const fin = await ledger.queryFilter(ledger.filters.ResolutionFinalized(), from, head);
+      const recent = fin.slice(-8).reverse();
+      for (const ev of recent) {
+        const h = ev.args.ticketHash;
+        const byClerk = ev.args.resolvedByClerk;
+        const pay = okb(ev.args.payout);
+        rows += `<div class="lrow">
+          <a class="hash" href="${NET.explorerTx(ev.transactionHash)}" target="_blank" rel="noopener">${h.slice(0,8)}…</a>
+          <span class="kind ${byClerk?'':'assist'}">${byClerk?'Resolved solo':'Resolved w/ human'}</span>
+          <span class="conf"></span>
+          <span class="lstate final">FINAL</span>
+          <span class="pay">+${pay.toFixed(3)} OKB</span>
+        </div>`;
+      }
+      if (!recent.length) rows = `<div class="lrow"><span class="kind" style="grid-column:1/-1;color:var(--muted)">No finalized resolutions in the recent block window yet.</span></div>`;
+    } catch {
+      rows = `<div class="lrow"><span class="kind" style="grid-column:1/-1;color:var(--muted)">Event history unavailable from this RPC — scores above are still live from contract state.</span></div>`;
+    }
+
+    $("#content").innerHTML = `
+      <div class="scores">
+        <div class="scard cust">
+          <div class="lbl">Customer rating</div>
+          <div class="big">${custScore}<span class="of">/5</span></div>
+          <div style="color:var(--cyan)">${stars(custScore)}</div>
+          <div class="n">${custN} rating${custN===1?'':'s'} · from customers Clerk served</div>
+        </div>
+        <div class="scard merch">
+          <div class="lbl">Merchant rating</div>
+          <div class="big">${merchScore}<span class="of">/5</span></div>
+          <div style="color:var(--violet)">${stars(merchScore)}</div>
+          <div class="n">${merchN} rating${merchN===1?'':'s'} · guardrailed to real interactions</div>
+        </div>
+      </div>
+
+      <div class="stat-row">
+        <div class="stat"><div class="k">Resolved solo</div><div class="v c">${solo.toLocaleString()}</div></div>
+        <div class="stat"><div class="k">Human-assisted</div><div class="v g">${assisted.toLocaleString()}</div></div>
+        <div class="stat"><div class="k">Solo rate</div><div class="v">${soloRate}%</div></div>
+        <div class="stat"><div class="k">Reopened</div><div class="v m">${reopened.toLocaleString()}</div></div>
+      </div>
+
+      <div class="section-t">Recent finalized resolutions <span class="chip">onchain events</span></div>
+      <div class="ledger">${rows}</div>
+
+      <div class="foot">
+        Total paid to Clerk, all-time: <b style="color:var(--cyan)">${paidOut.toFixed(3)} OKB</b> — released only after each ticket's reopen window closed.<br>
+        Scores use a confidence-weighted Bayesian average (prior 3.50, weight 20): a low volume of ratings can't spike the number.
+        <div class="contract-line">contract: <a href="${NET.explorerAddr(CONTRACT)}" target="_blank" rel="noopener">${CONTRACT}</a></div>
+      </div>`;
+  }
+
+  load();
+</script>

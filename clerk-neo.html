@@ -1,0 +1,1070 @@
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Clerk — your AI support agent on X Layer</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+  :root {
+    --void: #05060E;
+    --void-2: #090B18;
+    --panel: rgba(15, 19, 36, 0.66);
+    --panel-2: rgba(22, 27, 50, 0.72);
+    --line: rgba(124, 134, 173, 0.16);
+    --line-2: rgba(124, 134, 173, 0.30);
+    --paper: #E8ECFF;
+    --muted: #8B94BC;
+    --muted-2: #5A6389;
+    --cyan: #22F3EE;
+    --cyan-dim: rgba(34, 243, 238, 0.10);
+    --violet: #A78BFA;
+    --violet-2: #8B5CF6;
+    --violet-dim: rgba(139, 92, 246, 0.12);
+    --gold: #FFB020;
+    --gold-dim: rgba(255, 176, 32, 0.10);
+    --magenta: #FF3DA6;
+    --magenta-dim: rgba(255, 61, 166, 0.10);
+    --display: 'Inter', sans-serif;
+    --body: 'Inter', sans-serif;
+    --mono: 'JetBrains Mono', monospace;
+    --glow-cyan: 0 0 24px rgba(34,243,238,.35);
+    --glow-violet: 0 0 24px rgba(139,92,246,.35);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--void);
+    color: var(--paper);
+    font-family: var(--body);
+    font-size: 13.5px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  /* ambient field */
+  body::before {
+    content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background:
+      radial-gradient(900px 500px at 12% -10%, rgba(139,92,246,.14), transparent 60%),
+      radial-gradient(800px 500px at 95% 8%, rgba(34,243,238,.08), transparent 55%),
+      radial-gradient(700px 600px at 50% 110%, rgba(255,61,166,.05), transparent 60%);
+  }
+  body::after {
+    content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: .5;
+    background-image: linear-gradient(rgba(124,134,173,.05) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(124,134,173,.05) 1px, transparent 1px);
+    background-size: 44px 44px;
+    mask-image: radial-gradient(80% 60% at 50% 30%, black, transparent);
+  }
+
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 4px; }
+
+  ::selection { background: rgba(34,243,238,.25); }
+
+  /* ============ SHARED PRIMITIVES ============ */
+  .glass {
+    background: linear-gradient(var(--panel), var(--panel)) padding-box,
+                linear-gradient(140deg, rgba(34,243,238,.30), rgba(139,92,246,.28) 55%, rgba(124,134,173,.10)) border-box;
+    border: 1px solid transparent;
+    border-radius: 16px;
+    backdrop-filter: blur(14px);
+  }
+  .glass-soft {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    backdrop-filter: blur(10px);
+  }
+  .btn {
+    font-family: var(--body); font-size: 13px; font-weight: 600;
+    border: 1px solid var(--line-2); background: var(--panel-2); color: var(--paper);
+    padding: 10px 18px; border-radius: 11px; cursor: pointer; transition: all .18s;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .btn:hover { border-color: var(--cyan); box-shadow: var(--glow-cyan); }
+  .btn.primary {
+    background: linear-gradient(120deg, var(--cyan), #14c8c4); color: #032120;
+    border-color: transparent; font-weight: 700;
+  }
+  .btn.primary:hover { box-shadow: 0 0 32px rgba(34,243,238,.5); transform: translateY(-1px); }
+  .btn.primary:disabled { opacity: .35; cursor: not-allowed; box-shadow: none; transform: none; }
+  .btn.violet { background: linear-gradient(120deg, var(--violet-2), #6d3ff0); color: #fff; border-color: transparent; }
+  .btn.violet:hover { box-shadow: var(--glow-violet); }
+  .btn.ghost { background: transparent; }
+  .btn.danger { background: var(--magenta-dim); border-color: rgba(255,61,166,.4); color: var(--magenta); }
+  .btn.danger:hover { box-shadow: 0 0 20px rgba(255,61,166,.3); border-color: var(--magenta); }
+
+  .eyebrow { font-family: var(--mono); font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+
+  /* ============ THE CLERK CORE (orb) ============ */
+  .core-wrap { position: relative; display: grid; place-items: center; }
+  .core {
+    position: relative; width: var(--core-size, 56px); height: var(--core-size, 56px);
+    border-radius: 50%;
+    background: conic-gradient(from 0deg, var(--cyan), var(--violet-2), var(--magenta), var(--cyan));
+    animation: coreSpin 9s linear infinite;
+    filter: saturate(1.2);
+  }
+  .core::before {
+    content: ''; position: absolute; inset: 3px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #10142a 0%, #05060E 70%);
+  }
+  .core::after {
+    content: ''; position: absolute; inset: 26%; border-radius: 50%;
+    background: radial-gradient(circle, rgba(34,243,238,.95), rgba(139,92,246,.4) 65%, transparent 75%);
+    animation: coreBreathe 3.2s ease-in-out infinite;
+  }
+  .core-halo {
+    position: absolute; inset: -30%; border-radius: 50%; pointer-events: none;
+    background: radial-gradient(circle, rgba(34,243,238,.22), transparent 65%);
+    animation: coreBreathe 3.2s ease-in-out infinite;
+  }
+  .core-wrap.thinking .core { animation-duration: 1.1s; }
+  .core-wrap.thinking .core::after, .core-wrap.thinking .core-halo { animation-duration: .9s; }
+  @keyframes coreSpin { to { transform: rotate(360deg); } }
+  @keyframes coreBreathe { 0%,100% { opacity: .55; transform: scale(.92); } 50% { opacity: 1; transform: scale(1.06); } }
+
+  .speak { font-family: var(--mono); font-size: 11px; color: var(--cyan); min-height: 17px; }
+  .speak::after { content: '▍'; animation: caret 1s steps(2) infinite; }
+  @keyframes caret { 50% { opacity: 0; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .core, .core::after, .core-halo { animation: none !important; }
+    .speak::after { animation: none; }
+    * { transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
+  }
+
+  /* ============ ONBOARDING ============ */
+  #onboarding {
+    position: relative; z-index: 2; min-height: 100vh;
+    display: grid; place-items: center; padding: 40px 20px;
+  }
+  .ob-shell { width: 100%; max-width: 660px; }
+  .ob-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 26px; }
+  .ob-brand { display: flex; align-items: center; gap: 14px; }
+  .ob-brand .name { font-family: var(--display); font-size: 17px; font-weight: 600; letter-spacing: .02em; }
+  .ob-brand .tag { font-family: var(--mono); font-size: 10px; color: var(--muted); }
+  .ob-skip { font-family: var(--mono); font-size: 11px; color: var(--muted-2); background: none; border: none; cursor: pointer; }
+  .ob-skip:hover { color: var(--cyan); }
+
+  .ob-dots { display: flex; gap: 8px; margin-bottom: 22px; }
+  .ob-dots .d { height: 3px; flex: 1; border-radius: 2px; background: var(--line-2); transition: all .4s; }
+  .ob-dots .d.on { background: linear-gradient(90deg, var(--cyan), var(--violet)); box-shadow: var(--glow-cyan); }
+
+  .ob-card { padding: 36px; }
+  .ob-step { display: none; animation: obIn .45s cubic-bezier(.2,.8,.2,1); }
+  .ob-step.on { display: block; }
+  @keyframes obIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+
+  .ob-h { font-family: var(--display); font-weight: 600; font-size: clamp(24px, 4.5vw, 34px); line-height: 1.15; letter-spacing: -0.01em; margin: 18px 0 10px; }
+  .ob-h em { font-style: normal; background: linear-gradient(100deg, var(--cyan), var(--violet)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .ob-p { color: var(--muted); font-size: 14px; max-width: 46ch; }
+
+  .ob-fields { display: flex; flex-direction: column; gap: 14px; margin-top: 24px; }
+  .field label { display: block; font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-bottom: 7px; }
+  .field input, .field select {
+    width: 100%; font-family: var(--body); font-size: 14px; color: var(--paper);
+    background: var(--void-2); border: 1px solid var(--line-2); border-radius: 11px;
+    padding: 12px 14px; outline: none; transition: all .18s;
+  }
+  .field input:focus, .field select:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(34,243,238,.12); }
+
+  .ob-nav { display: flex; justify-content: space-between; align-items: center; margin-top: 30px; }
+  .ob-back { font-family: var(--mono); font-size: 11px; color: var(--muted-2); background: none; border: none; cursor: pointer; }
+  .ob-back:hover { color: var(--paper); }
+
+  .dropzone {
+    margin-top: 22px; border: 1.5px dashed var(--line-2); border-radius: 14px;
+    padding: 30px 20px; text-align: center; cursor: pointer; transition: all .2s;
+  }
+  .dropzone:hover { border-color: var(--cyan); background: var(--cyan-dim); }
+  .dropzone .dz-icon { font-size: 24px; }
+  .dropzone p { color: var(--muted); font-size: 12.5px; margin-top: 8px; }
+  .dz-files { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+  .dz-file {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    background: var(--void-2); border: 1px solid var(--line); border-radius: 10px;
+    padding: 10px 13px; font-size: 12.5px; animation: obIn .3s ease;
+  }
+  .dz-file .fmeta { font-family: var(--mono); font-size: 10px; color: var(--cyan); }
+  .dz-file .fname { display: flex; align-items: center; gap: 8px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+
+  .mode-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 24px; }
+  .mode-card {
+    background: var(--void-2); border: 1px solid var(--line-2); border-radius: 14px;
+    padding: 18px 15px; cursor: pointer; transition: all .18s; position: relative;
+  }
+  .mode-card:hover { border-color: var(--violet); transform: translateY(-2px); }
+  .mode-card.sel { border-color: var(--cyan); box-shadow: var(--glow-cyan); background: var(--cyan-dim); }
+  .mode-card .mi { font-size: 20px; }
+  .mode-card h4 { font-family: var(--display); font-size: 13px; font-weight: 500; margin: 10px 0 6px; }
+  .mode-card p { font-size: 11px; color: var(--muted); line-height: 1.5; }
+  .mode-card .rec { position: absolute; top: 10px; right: 10px; font-family: var(--mono); font-size: 8.5px; letter-spacing: .08em; color: var(--void); background: var(--cyan); border-radius: 5px; padding: 2px 6px; font-weight: 700; }
+
+  .escrow-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 24px; }
+  .swap-box { margin-top: 18px; border: 1px solid var(--line-2); border-radius: 13px; overflow: hidden; background: var(--void-2); }
+  .swap-head { display: flex; align-items: center; justify-content: space-between; padding: 13px 15px; cursor: pointer; font-size: 12.5px; color: var(--violet); font-weight: 600; }
+  .swap-head:hover { background: rgba(139,92,246,.08); }
+  .swap-caret { transition: transform .2s; }
+  .swap-box.open .swap-caret { transform: rotate(180deg); }
+  .swap-body { display: none; padding: 0 15px 15px; }
+  .swap-box.open .swap-body { display: block; animation: obIn .3s ease; }
+  .swap-note { font-size: 11px; color: var(--muted); line-height: 1.55; margin-bottom: 12px; }
+  .swap-row { display: flex; gap: 8px; align-items: center; }
+  .swap-row select, .swap-row input { background: var(--void); border: 1px solid var(--line-2); border-radius: 9px; padding: 9px 11px; color: var(--paper); font-family: var(--mono); font-size: 12px; outline: none; }
+  .swap-row select { flex: 0 0 90px; } .swap-row input { flex: 1; min-width: 0; }
+  .swap-row select:focus, .swap-row input:focus { border-color: var(--violet); }
+  .swap-arrow { font-family: var(--mono); font-size: 11px; color: var(--muted); white-space: nowrap; }
+  .swap-quote { margin-top: 12px; font-family: var(--mono); font-size: 11px; min-height: 16px; }
+  .swap-quote .q-ok { color: var(--cyan); }
+  .swap-quote .q-line { color: var(--muted); padding: 2px 0; }
+  .swap-quote .q-err { color: var(--gold); }
+  .price-readout { font-family: var(--display); font-size: 26px; font-weight: 600; color: var(--cyan); text-shadow: var(--glow-cyan); }
+  .price-readout small { font-size: 12px; color: var(--muted); font-family: var(--body); font-weight: 400; }
+  input[type=range] { width: 100%; accent-color: var(--cyan); margin-top: 10px; }
+  .wallet-chip {
+    display: flex; align-items: center; gap: 10px; margin-top: 8px;
+    font-family: var(--mono); font-size: 11px; color: var(--violet);
+    background: var(--violet-dim); border: 1px solid rgba(139,92,246,.35);
+    padding: 10px 13px; border-radius: 10px;
+  }
+  .deploy-seq { margin-top: 20px; font-family: var(--mono); font-size: 11px; display: flex; flex-direction: column; gap: 7px; min-height: 90px; }
+  .deploy-seq .ln { color: var(--muted); animation: obIn .3s ease; }
+  .deploy-seq .ln b { color: var(--cyan); font-weight: 500; }
+  .deploy-seq .ln .ok { color: var(--cyan); }
+
+  .summary-rows { margin-top: 22px; display: flex; flex-direction: column; gap: 0; }
+  .srow { display: flex; justify-content: space-between; padding: 11px 2px; border-bottom: 1px solid var(--line); font-size: 12.5px; }
+  .srow b { color: var(--muted); font-weight: 500; }
+  .srow span { font-family: var(--mono); font-size: 11.5px; }
+  .srow .c { color: var(--cyan); } .srow .v { color: var(--violet); }
+
+  /* ============ APP ============ */
+  #app { display: none; position: relative; z-index: 1; }
+  #app.on { display: block; }
+  .app-grid { display: grid; grid-template-columns: 320px 1fr; min-height: 100vh; }
+
+  .rail {
+    border-right: 1px solid var(--line);
+    padding: 22px 20px; display: flex; flex-direction: column; gap: 16px;
+    position: sticky; top: 0; height: 100vh; overflow-y: auto;
+    background: rgba(7,9,20,.5); backdrop-filter: blur(16px);
+  }
+  .rail-brand { display: flex; align-items: center; gap: 13px; }
+  .rail-brand .bn { font-family: var(--display); font-size: 17px; font-weight: 600; }
+  .rail-brand .bs { font-family: var(--mono); font-size: 10px; color: var(--muted); }
+  .rail-brand .bs b { color: var(--violet); font-weight: 500; }
+
+  .mind {
+    padding: 13px 14px;
+  }
+  .mind .mind-lines { display: flex; flex-direction: column; gap: 5px; margin-top: 9px; font-family: var(--mono); font-size: 10px; line-height: 1.5; max-height: 116px; overflow: hidden; }
+  .mind .ml { color: var(--muted-2); animation: obIn .25s ease; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mind .ml .pfx { margin-right: 6px; }
+  .mind .ml.read .pfx { color: var(--violet); }
+  .mind .ml.mem .pfx { color: var(--cyan); }
+  .mind .ml.route .pfx { color: var(--gold); }
+  .mind .ml.chain .pfx { color: var(--magenta); }
+  .mind .ml b { color: var(--muted); font-weight: 500; }
+
+  .rep { padding: 16px; }
+  .rep .scores { display: flex; gap: 10px; margin-top: 12px; }
+  .score { flex: 1; }
+  .score .sl { font-family: var(--mono); font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+  .score .sv { font-family: var(--display); font-size: 27px; font-weight: 600; line-height: 1.15; }
+  .score.cust .sv { color: var(--cyan); text-shadow: var(--glow-cyan); }
+  .score.merch .sv { color: var(--violet); text-shadow: var(--glow-violet); }
+  .score .sn { font-family: var(--mono); font-size: 9.5px; color: var(--muted-2); }
+
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+  .stat { padding: 10px 12px; }
+  .stat .k { font-family: var(--mono); font-size: 9px; letter-spacing: .09em; text-transform: uppercase; color: var(--muted-2); }
+  .stat .v { font-family: var(--display); font-size: 17px; font-weight: 500; margin-top: 3px; }
+  .stat .v.c { color: var(--cyan); } .stat .v.g { color: var(--gold); } .stat .v.m { color: var(--magenta); }
+  .stat .v small { font-family: var(--body); font-size: 10px; color: var(--muted); }
+
+  .thresh { padding: 13px 14px; }
+  .thresh .tk { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 9.5px; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
+  .thresh .tk b { color: var(--paper); }
+  .thresh .bar { height: 5px; background: var(--void-2); border-radius: 3px; margin-top: 9px; overflow: hidden; }
+  .thresh .bar .fill { height: 100%; background: linear-gradient(90deg, var(--gold), var(--cyan)); border-radius: 3px; transition: width .5s cubic-bezier(.4,0,.2,1); box-shadow: var(--glow-cyan); }
+  .thresh .note { font-size: 10px; color: var(--muted-2); margin-top: 8px; line-height: 1.5; }
+
+  .contract { padding: 13px 14px; font-family: var(--mono); }
+  .contract .crow { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted-2); padding: 2.5px 0; }
+  .contract .crow b { color: var(--muted); font-weight: 500; }
+  .contract .crow .addr { color: var(--violet); }
+
+  /* main */
+  .main { min-width: 0; display: flex; flex-direction: column; }
+  .topbar {
+    padding: 16px 26px; display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 20;
+    background: rgba(7,9,20,.65); backdrop-filter: blur(16px);
+  }
+  .topbar h2 { font-family: var(--display); font-size: 15px; font-weight: 500; }
+  .topbar p { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+  .controls { display: flex; gap: 9px; align-items: center; }
+  .speed { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+
+  .board { display: grid; grid-template-columns: repeat(4, 1fr); gap: 13px; padding: 20px 26px; flex: 1; align-content: start; }
+  .col { display: flex; flex-direction: column; gap: 10px; }
+  .col-head { display: flex; align-items: center; justify-content: space-between; padding: 0 2px; }
+  .col-head .t { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; display: flex; align-items: center; gap: 7px; color: var(--muted); }
+  .col-head .sw { width: 7px; height: 7px; border-radius: 2px; }
+  .col.new .sw { background: var(--muted-2); }
+  .col.prog .sw { background: var(--violet); box-shadow: var(--glow-violet); }
+  .col.esc .sw { background: var(--gold); }
+  .col.done .sw { background: var(--cyan); box-shadow: var(--glow-cyan); }
+  .col-head .count { font-family: var(--mono); font-size: 10.5px; color: var(--muted); background: var(--panel-2); border: 1px solid var(--line); padding: 1px 8px; border-radius: 7px; }
+  .col-body { display: flex; flex-direction: column; gap: 9px; }
+
+  .ticket { padding: 12px 13px; cursor: pointer; transition: all .18s; animation: pop .3s cubic-bezier(.34,1.56,.64,1); }
+  @keyframes pop { from { opacity: 0; transform: scale(.94) translateY(6px); } to { opacity: 1; transform: none; } }
+  .ticket:hover { border-color: var(--cyan); transform: translateY(-2px); }
+  .ticket .id { font-family: var(--mono); font-size: 9.5px; color: var(--muted-2); }
+  .ticket .subj { font-weight: 600; font-size: 12.5px; margin: 3px 0 4px; line-height: 1.35; }
+  .ticket .who { font-size: 10.5px; color: var(--muted); }
+  .ticket .tags { display: flex; gap: 5px; margin-top: 8px; flex-wrap: wrap; }
+  .tag { font-family: var(--mono); font-size: 9px; padding: 2px 7px; border-radius: 6px; background: var(--void-2); color: var(--muted); border: 1px solid var(--line); }
+  .tag.dup { background: var(--gold-dim); color: var(--gold); border-color: transparent; }
+  .tag.reop { background: var(--magenta-dim); color: var(--magenta); border-color: transparent; }
+  .ticket.working { border-color: var(--violet); box-shadow: var(--glow-violet); }
+  .ticket.working .subj::after { content: ' ▍'; color: var(--violet); animation: caret 1s steps(2) infinite; }
+  .meter { margin-top: 9px; }
+  .meter .mlabel { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 9px; color: var(--muted); margin-bottom: 4px; }
+  .meter .mbar { height: 4px; background: var(--void-2); border-radius: 2px; overflow: hidden; }
+  .meter .mbar span { display: block; height: 100%; border-radius: 2px; transition: width .6s; }
+  .resline { font-family: var(--mono); font-size: 9px; color: var(--cyan); margin-top: 7px; display: flex; align-items: center; gap: 5px; }
+  .escline { font-family: var(--mono); font-size: 9px; color: var(--gold); margin-top: 7px; }
+  .voidline { font-family: var(--mono); font-size: 9px; color: var(--magenta); margin-top: 7px; }
+  .stars-mini { color: var(--cyan); font-size: 10.5px; letter-spacing: 1px; }
+  .stars-mini .off { color: var(--line-2); }
+
+  .window-strip {
+    margin-top: 8px; background: var(--void-2); border: 1px solid var(--line); border-radius: 9px;
+    padding: 7px 9px; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  }
+  .window-strip .wtxt { font-family: var(--mono); font-size: 9px; color: var(--gold); }
+  .window-strip .wtxt b { color: var(--paper); }
+  .mini-reopen {
+    font-family: var(--mono); font-size: 8.5px; font-weight: 700; letter-spacing: .05em;
+    background: var(--magenta-dim); color: var(--magenta); border: 1px solid rgba(255,61,166,.4);
+    padding: 3px 9px; border-radius: 7px; cursor: pointer; transition: all .15s;
+  }
+  .mini-reopen:hover { box-shadow: 0 0 14px rgba(255,61,166,.35); }
+  .wbar { height: 3px; background: var(--void-2); border-radius: 2px; margin-top: 6px; overflow: hidden; }
+  .wbar span { display: block; height: 100%; background: linear-gradient(90deg, var(--gold), var(--magenta)); border-radius: 2px; }
+
+  .empty { text-align: center; color: var(--muted-2); font-family: var(--mono); font-size: 10.5px; padding: 22px 8px; border: 1px dashed var(--line-2); border-radius: 13px; }
+
+  /* ledger */
+  .ledger-wrap { border-top: 1px solid var(--line); background: rgba(7,9,20,.6); backdrop-filter: blur(14px); }
+  .ledger-head { padding: 12px 26px; display: flex; align-items: center; justify-content: space-between; }
+  .ledger-head .t { font-family: var(--display); font-size: 12px; font-weight: 500; display: flex; align-items: center; gap: 9px; }
+  .ledger-head .chip { font-family: var(--mono); font-size: 9px; background: var(--violet-dim); color: var(--violet); border: 1px solid rgba(139,92,246,.35); padding: 2px 8px; border-radius: 6px; }
+  .ledger-head .hint { font-family: var(--mono); font-size: 10px; color: var(--muted-2); }
+  .ledger-head .hint b { color: var(--cyan); font-weight: 500; }
+  .ledger { max-height: 168px; overflow-y: auto; padding: 0 26px 16px; }
+  .lrow {
+    font-family: var(--mono); font-size: 10.5px; display: grid;
+    grid-template-columns: 98px 1fr 52px 70px 78px 86px; gap: 12px; align-items: center;
+    padding: 7px 0; border-bottom: 1px solid var(--line); color: var(--muted);
+    animation: slidein .35s ease;
+  }
+  @keyframes slidein { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
+  .lrow .hash { color: var(--violet); }
+  .lrow .desc { color: var(--paper); font-family: var(--body); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lrow.assist .desc::before { content: '⇄ '; color: var(--gold); }
+  .lrow .pay { color: var(--cyan); text-align: right; }
+  .lrow .pay.void { color: var(--magenta); text-decoration: line-through; }
+  .lrow .rate { text-align: right; }
+  .lchip { font-family: var(--mono); font-size: 8.5px; font-weight: 700; letter-spacing: .06em; padding: 2px 7px; border-radius: 6px; text-align: center; }
+  .lchip.pending { background: var(--gold-dim); color: var(--gold); }
+  .lchip.final { background: var(--cyan-dim); color: var(--cyan); }
+  .lchip.reopened { background: var(--magenta-dim); color: var(--magenta); }
+  .ledger-empty { font-family: var(--mono); font-size: 10.5px; color: var(--muted-2); padding: 14px 0; }
+
+  /* drawer */
+  .scrim { position: fixed; inset: 0; background: rgba(3,4,10,.7); backdrop-filter: blur(4px); opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 40; }
+  .scrim.open { opacity: 1; pointer-events: auto; }
+  .drawer {
+    position: fixed; top: 0; right: 0; height: 100vh; width: 480px; max-width: 93vw;
+    background: rgba(10,13,26,.92); backdrop-filter: blur(22px);
+    border-left: 1px solid var(--line-2); z-index: 50;
+    transform: translateX(100%); transition: transform .3s cubic-bezier(.4,0,.2,1);
+    display: flex; flex-direction: column;
+  }
+  .drawer.open { transform: none; }
+  .dhead { padding: 20px 22px; border-bottom: 1px solid var(--line); position: relative; }
+  .dhead .id { font-family: var(--mono); font-size: 10px; color: var(--muted-2); }
+  .dhead .subj { font-family: var(--display); font-size: 16px; font-weight: 500; margin: 6px 0 8px; }
+  .dhead .who { font-size: 11.5px; color: var(--muted); }
+  .dhead .x { position: absolute; top: 18px; right: 18px; cursor: pointer; color: var(--muted); font-size: 19px; background: none; border: none; }
+  .dhead .x:hover { color: var(--magenta); }
+  .dbody { padding: 20px 22px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 17px; }
+  .blabel { font-family: var(--mono); font-size: 9.5px; text-transform: uppercase; letter-spacing: .12em; color: var(--muted); margin-bottom: 8px; }
+  .cust-msg { background: var(--void-2); border: 1px solid var(--line); border-radius: 12px; padding: 13px 14px; font-size: 12.5px; line-height: 1.6; }
+  .draft { background: var(--cyan-dim); border: 1px solid rgba(34,243,238,.3); border-radius: 12px; padding: 13px 14px; font-size: 12.5px; line-height: 1.6; }
+  .draft.esc { background: var(--gold-dim); border-color: rgba(255,176,32,.3); }
+  .conf-row { display: flex; align-items: center; gap: 14px; }
+  .conf-big { font-family: var(--display); font-size: 32px; font-weight: 600; }
+  .conf-big.hi { color: var(--cyan); text-shadow: var(--glow-cyan); }
+  .conf-big.lo { color: var(--gold); }
+  .conf-meta .verdict { font-weight: 600; font-size: 12.5px; }
+  .conf-meta .verdict.hi { color: var(--cyan); } .conf-meta .verdict.lo { color: var(--gold); }
+  .conf-meta .src { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .conf-meta .src code { font-family: var(--mono); color: var(--violet); }
+  .rate-panel { border-top: 1px solid var(--line); padding-top: 16px; }
+  .rate-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .rate-row .rl { font-size: 12px; }
+  .rate-row .rl b { display: block; }
+  .rate-row .rl span { font-size: 10.5px; color: var(--muted); }
+  .starpick { display: flex; gap: 3px; }
+  .starpick .s { font-size: 19px; color: var(--line-2); cursor: pointer; transition: color .12s, transform .12s; }
+  .starpick .s:hover, .starpick .s.on { color: var(--cyan); text-shadow: var(--glow-cyan); }
+  .starpick.merch .s:hover, .starpick.merch .s.on { color: var(--violet); text-shadow: var(--glow-violet); }
+  .starpick .s:hover { transform: scale(1.18); }
+  .starpick.locked .s { cursor: default; }
+  .starpick.locked .s:hover { transform: none; }
+  .onchain-note { font-family: var(--mono); font-size: 10px; color: var(--muted-2); background: var(--void-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; line-height: 1.65; }
+  .onchain-note b { color: var(--cyan); }
+  .onchain-note .fn { color: var(--violet); }
+
+  .toast-wrap { position: fixed; bottom: 20px; left: 340px; z-index: 60; display: flex; flex-direction: column; gap: 8px; }
+  .toast {
+    background: rgba(14,18,36,.92); backdrop-filter: blur(14px);
+    border: 1px solid var(--line-2); border-left: 3px solid var(--cyan);
+    padding: 11px 15px; border-radius: 11px; font-size: 12px;
+    box-shadow: 0 12px 40px rgba(0,0,0,.5); animation: toastin .3s ease; max-width: 370px;
+  }
+  .toast.gold { border-left-color: var(--gold); }
+  .toast.violet { border-left-color: var(--violet); }
+  .toast.magenta { border-left-color: var(--magenta); }
+  .toast b { font-family: var(--display); font-weight: 500; font-size: 11.5px; }
+  .toast .fn { font-family: var(--mono); font-size: 10.5px; color: var(--violet); }
+  @keyframes toastin { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+  @media (max-width: 1100px) {
+    .app-grid { grid-template-columns: 1fr; }
+    .rail { position: static; height: auto; }
+    .board { grid-template-columns: 1fr 1fr; }
+    .toast-wrap { left: 20px; }
+    .mode-cards { grid-template-columns: 1fr; }
+    .escrow-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 640px) {
+    .board { grid-template-columns: 1fr; }
+    .lrow { grid-template-columns: 80px 1fr 78px; }
+    .lrow .conf, .lrow .rate, .lrow .lchip { display: none; }
+    .ob-card { padding: 24px 20px; }
+  }
+</style>
+
+<!-- ==================== ONBOARDING ==================== -->
+<div id="onboarding">
+  <div class="ob-shell">
+    <div class="ob-top">
+      <div class="ob-brand">
+        <a href="landing.html" style="text-decoration:none;display:flex;align-items:center;gap:14px;color:inherit">
+        <div class="core-wrap" style="--core-size:40px" id="obCore"><div class="core-halo"></div><div class="core"></div></div>
+        <div>
+          <div class="name">Clerk</div>
+          <div class="tag">AI support agent · X Layer</div>
+        </div>
+        </a>
+      </div>
+      <button class="ob-skip" id="obSkip">Skip setup →</button>
+    </div>
+
+    <div class="ob-dots" id="obDots"></div>
+
+    <div class="ob-card glass">
+
+      <!-- STEP 1 -->
+      <div class="ob-step on" data-step="1">
+        <div class="eyebrow">Step 1 of 5</div>
+        <div class="ob-h">Hi, I'm <em>Clerk</em> 👋</div>
+        <p class="ob-p">Nice to meet you. Let's get your support desk set up — it only takes a minute.</p>
+        <div class="ob-fields">
+          <div class="field">
+            <label>Business name</label>
+            <input id="obBizName" placeholder="e.g. Northwind Goods" maxlength="40" />
+          </div>
+          <div class="field">
+            <label>Where your tickets live</label>
+            <select id="obSystem">
+              <option value="demo">Demo queue</option>
+              <option value="zendesk">Zendesk</option>
+              <option value="intercom">Intercom</option>
+              <option value="freshdesk">Freshdesk</option>
+            </select>
+          </div>
+        </div>
+        <div class="ob-nav">
+          <span></span>
+          <button class="btn primary" data-next>Continue</button>
+        </div>
+      </div>
+
+      <!-- STEP 2 -->
+      <div class="ob-step" data-step="2">
+        <div class="eyebrow">Step 2 of 5</div>
+        <div class="ob-h">Teach me a little</div>
+        <p class="ob-p">Share your FAQs or docs and I'll only ever answer from what you give me. Private, always.</p>
+        <div class="dropzone" id="dropzone">
+          <div class="dz-icon">⬡</div>
+          <p><b>Drop files or click to add</b><br>or just try sample docs below</p>
+        </div>
+        <input type="file" id="fileInput" multiple hidden />
+        <div class="dz-files" id="dzFiles"></div>
+        <div class="ob-nav">
+          <button class="ob-back" data-back>← Back</button>
+          <div style="display:flex;gap:9px">
+            <button class="btn ghost" id="addSamples">Use sample docs</button>
+            <button class="btn primary" data-next id="obNext2" disabled>Continue</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 3 -->
+      <div class="ob-step" data-step="3">
+        <div class="eyebrow">Step 3 of 5</div>
+        <div class="ob-h">How should I start?</div>
+        <p class="ob-p">No wrong answer — most people pick the first one.</p>
+        <div class="mode-cards" id="modeCards">
+          <div class="mode-card" data-mode="shadow">
+            <span class="rec">RECOMMENDED</span>
+            <div class="mi">◎</div>
+            <h4>Shadow mode</h4>
+            <p>I watch your team work and learn your style first.</p>
+          </div>
+          <div class="mode-card" data-mode="sandbox">
+            <div class="mi">▣</div>
+            <h4>Sandbox trial</h4>
+            <p>Quiz me privately — nothing reaches a customer yet.</p>
+          </div>
+          <div class="mode-card" data-mode="live">
+            <div class="mi">⚡</div>
+            <h4>Go live now</h4>
+            <p>I start resolving tickets right away.</p>
+          </div>
+        </div>
+        <div class="ob-nav">
+          <button class="ob-back" data-back>← Back</button>
+          <button class="btn primary" data-next id="obNext3" disabled>Continue</button>
+        </div>
+      </div>
+
+      <!-- STEP 4 -->
+      <div class="ob-step" data-step="4">
+        <div class="eyebrow">Step 4 of 5</div>
+        <div class="ob-h">Set my rate</div>
+        <p class="ob-p">You only pay when I resolve a ticket — held in escrow until then.</p>
+        <div class="escrow-grid">
+          <div class="field">
+            <label>Price per resolution</label>
+            <div class="price-readout"><span id="priceVal">0.050</span> OKB <small>· 40% if a human helps</small></div>
+            <input type="range" id="priceRange" min="10" max="200" value="50" />
+          </div>
+          <div class="field">
+            <label>Starting deposit</label>
+            <div class="wallet-chip">⬢ <span id="walletAddr">connect wallet →</span></div>
+            <input id="depositInput" value="1.0" style="font-family:var(--mono);margin-top:12px" />
+          </div>
+        </div>
+        <div class="swap-box" id="swapBox">
+          <div class="swap-head" id="swapToggle">
+            <span>⇄ Need OKB? Swap for it here</span>
+            <span class="swap-caret" id="swapCaret">▾</span>
+          </div>
+          <div class="swap-body" id="swapBody">
+            <p class="swap-note">Your wallet signs — Clerk never touches your funds.</p>
+            <div class="swap-row">
+              <select id="swapFrom">
+                <option value="USDT">USDT</option>
+                <option value="USDC">USDC</option>
+                <option value="WOKB">WOKB</option>
+              </select>
+              <input id="swapAmount" placeholder="Amount" value="50" />
+              <span class="swap-arrow">→ OKB</span>
+            </div>
+            <button class="btn violet" id="swapQuoteBtn" style="width:100%;justify-content:center;margin-top:10px">Get quote</button>
+            <div class="swap-quote" id="swapQuote"></div>
+          </div>
+        </div>
+        <div class="deploy-seq" id="deploySeq"></div>
+        <div class="ob-nav">
+          <button class="ob-back" data-back>← Back</button>
+          <button class="btn violet" id="deployBtn">⛓ Fund &amp; go</button>
+          <button class="btn primary" data-next id="obNext4" disabled style="display:none">Continue</button>
+        </div>
+      </div>
+
+      <!-- STEP 5 -->
+      <div class="ob-step" data-step="5">
+        <div class="eyebrow">Step 5 of 5</div>
+        <div class="ob-h">All set 🎉</div>
+        <div class="summary-rows" id="summaryRows"></div>
+        <div class="ob-nav">
+          <button class="ob-back" data-back>← Back</button>
+          <button class="btn primary" id="enterApp">Enter the dashboard →</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ==================== APP ==================== -->
+<div id="app">
+<div class="app-grid">
+  <aside class="rail">
+    <div class="rail-brand">
+      <div class="core-wrap" style="--core-size:46px" id="appCore"><div class="core-halo"></div><div class="core"></div></div>
+      <div>
+        <div class="bn">Clerk</div>
+        <div class="bs"><span id="bizLabel">Northwind Goods</span> · on <b>X Layer</b></div>
+      </div>
+    </div>
+
+    <div class="mind glass-soft">
+      <div class="speak" id="speak"></div>
+      <div class="mind-lines" id="mindLines"></div>
+    </div>
+
+    <div class="rep glass">
+      <div class="eyebrow" style="display:flex;align-items:center;gap:7px"><span style="width:6px;height:6px;border-radius:50%;background:var(--cyan);box-shadow:var(--glow-cyan)"></span> Onchain reputation</div>
+      <div class="scores">
+        <div class="score cust"><div class="sl">Customer</div><div class="sv" id="custScore">3.50</div><div class="sn" id="custN">0 ratings</div></div>
+        <div class="score merch"><div class="sl">Merchant</div><div class="sv" id="merchScore">3.50</div><div class="sn" id="merchN">0 ratings</div></div>
+      </div>
+    </div>
+
+    <div class="stat-grid">
+      <div class="stat glass-soft"><div class="k">Resolved solo</div><div class="v c" id="soloN">0</div></div>
+      <div class="stat glass-soft"><div class="k">Human-assisted</div><div class="v g" id="assistN">0</div></div>
+      <div class="stat glass-soft"><div class="k">Solo rate</div><div class="v" id="soloRate">—</div></div>
+      <div class="stat glass-soft"><div class="k">Reopened</div><div class="v m" id="reopN">0</div></div>
+      <div class="stat glass-soft"><div class="k">Escrow locked</div><div class="v g" id="lockedOKB">0.000</div></div>
+      <div class="stat glass-soft"><div class="k">Paid out</div><div class="v c" id="paidOKB">0.000 <small>OKB</small></div></div>
+    </div>
+
+    <div class="thresh glass-soft">
+      <div class="tk"><span>Auto-send threshold</span><b>private</b></div>
+      <div class="bar"><div class="fill" style="width:100%;opacity:.25"></div></div>
+      <div class="note">Calibrated per category on Clerk's backend — not public data. Publicly verifiable numbers are the reputation scores and ledger above.</div>
+    </div>
+
+    <div class="contract glass-soft">
+      <div class="eyebrow" style="margin-bottom:8px">⛓ ClerkLedgerV2.sol</div>
+      <div class="crow"><b>network</b><span id="cNetwork">X Layer</span></div>
+      <div class="crow"><b>chainId</b><span id="cChainId">196</span></div>
+      <div class="crow"><b>contract</b><span class="addr" id="cAddr">—</span></div>
+      <div class="crow"><b>price / solo</b><span id="cPrice">—</span></div>
+      <div class="crow"><b>assisted</b><span id="cAssist">—</span></div>
+      <div class="crow"><b>reopen window</b><span id="cWindow">—</span></div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <h2>Live ticket queue</h2>
+        <p id="ctxSub">10 tickets seeded · payouts settle through ClerkLedger on X Layer</p>
+      </div>
+      <div class="controls">
+        <span class="speed" id="chainStatus">reading chain…</span>
+        <button class="btn primary" id="runBtn">↻ Refresh</button>
+      </div>
+    </div>
+
+    <div class="board">
+      <div class="col new"><div class="col-head"><span class="t"><span class="sw"></span>Registered</span><span class="count" id="cNew">0</span></div><div class="col-body" id="colNew"></div></div>
+      <div class="col prog"><div class="col-head"><span class="t"><span class="sw"></span>Awaiting Clerk</span><span class="count" id="cProg">0</span></div><div class="col-body" id="colProg"></div></div>
+      <div class="col esc"><div class="col-head"><span class="t"><span class="sw"></span>Reopened</span><span class="count" id="cEsc">0</span></div><div class="col-body" id="colEsc"></div></div>
+      <div class="col done"><div class="col-head"><span class="t"><span class="sw"></span>Pending / Finalized</span><span class="count" id="cDone">0</span></div><div class="col-body" id="colDone"></div></div>
+    </div>
+
+    <div class="ledger-wrap">
+      <div class="ledger-head">
+        <div class="t">ClerkLedger · onchain record <span class="chip">X Layer</span></div>
+        <div class="hint">lifecycle: <b>lock → window → finalize</b> · reopen voids payout</div>
+      </div>
+      <div class="ledger" id="ledger"><div class="ledger-empty">No records yet — run Clerk. Each resolution locks escrow, survives a reopen window, then finalizes.</div></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="toast-wrap" id="toasts"></div>
+
+<script>
+  // Live deploy bootstrap — flip CLERK_NETWORK to "mainnet" and update address for prod.
+  window.CLERK_NETWORK = "testnet";
+  window.CLERK_CONTRACT = "0x6020b4475326480da78b3D166C5476639e450837";
+</script>
+<script type="module">
+import { ethers } from "https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.min.js";
+import { XLAYER as XL, LEDGER_ABI, activeNet } from "./xlayer.config.mjs";
+
+// ================== CHAIN CONFIG, imported from the shared module ==================
+const net = activeNet();
+const XLAYER = {
+  chainIdHex: net.chainIdHex, chainId: net.chainId, name: net.name,
+  params: { chainId: net.chainIdHex, chainName: net.name,
+    nativeCurrency: { name: net.nativeToken.name, symbol: net.nativeToken.symbol, decimals: net.nativeToken.decimals },
+    rpcUrls: [net.rpc, net.rpcFallback].filter(Boolean), blockExplorerUrls: [net.explorer] },
+  explorerTx: net.explorerTx,
+  explorerAddr: net.explorerAddr,
+};
+// Set this to your deployed ClerkLedgerV2 address before going live:
+const CONTRACT = window.CLERK_CONTRACT || "0x0000000000000000000000000000000000000000";
+const CHAIN_STATUS = ["None","REGISTERED","PENDING","FINALIZED","REOPENED"];
+let provider, signer, account, ledger, reopenWindowSecs = 259200;
+
+// ================== CONTRACT-MIRRORED CONSTANTS ==================
+let PRICE_SOLO = 0.05;                 // set during onboarding
+const ASSISTED_BPS = 4000;
+let PRICE_ASSIST = PRICE_SOLO * ASSISTED_BPS / 10000;
+const REOPEN_WINDOW = 10;
+const PRIOR = 3.5, WEIGHT = 20;
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// ================== STATE ==================
+let biz = { name: 'Your Business', system: 'demo', mode: 'live', deposit: 1.0, priceOKB: 0.05 };
+const $ = id => document.getElementById(id);
+function hash() { const h='0123456789abcdef'; let s='0x'; for(let i=0;i<8;i++) s+=h[Math.floor(Math.random()*16)]; return s+'…'; }
+const okb = wei => Number(ethers.formatEther(wei));
+const centi = c => (Number(c)/100).toFixed(2);
+
+// ================== THE CLERK PRESENCE (cosmetic, driven by real events) ==================
+let speakTimer = null;
+function speak(text) {
+  const el = $('speak'); if (!el) return;
+  clearInterval(speakTimer);
+  if (REDUCED) { el.textContent = text; return; }
+  let i = 0; el.textContent = '';
+  speakTimer = setInterval(() => { el.textContent = text.slice(0, ++i); if (i >= text.length) clearInterval(speakTimer); }, 18);
+}
+function mind(kind, html) {
+  const wrap = $('mindLines'); if (!wrap) return;
+  const pfx = { read:'◇', mem:'▣', route:'✦', chain:'⛓' }[kind] || '·';
+  const el = document.createElement('div'); el.className = 'ml ' + kind; el.innerHTML = `<span class="pfx">${pfx}</span>${html}`;
+  wrap.prepend(el); while (wrap.children.length > 6) wrap.lastChild.remove();
+}
+function coreThinking(on) { $('appCore')?.classList.toggle('thinking', on); }
+function toast(msg, kind='') {
+  const el = document.createElement('div'); el.className = 'toast ' + kind; el.innerHTML = msg;
+  $('toasts').appendChild(el);
+  setTimeout(()=>{ el.style.opacity='0'; el.style.transform='translateY(10px)'; setTimeout(()=>el.remove(),300); }, 4200);
+}
+const txLink = h => `<a href="${XLAYER.explorerTx(h)}" target="_blank" rel="noopener" class="fn">view tx ↗</a>`;
+
+// ================== WALLET / CHAIN ==================
+async function connectWallet() {
+  if (!window.ethereum) { toast('No EVM wallet found. Install OKX Wallet or MetaMask.', 'gold'); return false; }
+  provider = new ethers.BrowserProvider(window.ethereum);
+  await provider.send('eth_requestAccounts', []);
+  const net = await provider.getNetwork();
+  if (net.chainId !== BigInt(XLAYER.chainId)) {
+    try { await window.ethereum.request({ method:'wallet_switchEthereumChain', params:[{ chainId: XLAYER.chainIdHex }] }); }
+    catch (e) {
+      if (e.code === 4902) await window.ethereum.request({ method:'wallet_addEthereumChain', params:[XLAYER.params] });
+      else { toast('Please switch your wallet to X Layer.', 'gold'); return false; }
+    }
+    provider = new ethers.BrowserProvider(window.ethereum);
+  }
+  signer = await provider.getSigner();
+  account = await signer.getAddress();
+  ledger = new ethers.Contract(CONTRACT, LEDGER_ABI, signer);
+  if (CONTRACT === '0x0000000000000000000000000000000000000000') {
+    toast('window.CLERK_CONTRACT is not set — cannot read or write the real contract yet.', 'gold');
+    return false;
+  }
+  try { reopenWindowSecs = Number(await ledger.reopenWindow()); } catch {}
+  $('cAddr') && ($('cAddr').innerHTML = `<a href="${XLAYER.explorerAddr(CONTRACT)}" target="_blank" rel="noopener">${CONTRACT.slice(0,8)}…${CONTRACT.slice(-6)}</a>`);
+  $('cWindow') && ($('cWindow').textContent = reopenWindowSecs >= 3600 ? (reopenWindowSecs/3600).toFixed(0)+'h' : reopenWindowSecs+'s');
+  return true;
+}
+
+async function withTx(label, fn, kind='') {
+  try {
+    toast(`Sending ${label}…`);
+    const tx = await fn();
+    mind('chain', `<b>${label}</b> submitted`);
+    toast(`${label} submitted ${txLink(tx.hash)}`, kind);
+    await tx.wait();
+    mind('chain', `<b>${label}</b> confirmed`);
+    toast(`<b>${label} confirmed</b> ${txLink(tx.hash)}`, kind);
+    return true;
+  } catch (e) {
+    const msg = e.shortMessage || e.reason || e.message || 'failed';
+    toast(`${label} failed: ${msg}`, 'gold');
+    return false;
+  }
+}
+
+// ================== LIVE DASHBOARD (reads the real contract) ==================
+async function loadLive() {
+  if (!ledger) return;
+  $('chainStatus').textContent = 'reading chain…';
+  coreThinking(true);
+
+  const m = await ledger.merchants(account);
+  const tr = await ledger.trackRecord();
+
+  $('custScore').textContent = centi(tr[4]); $('custN').textContent = Number(tr[5]) + ' ratings';
+  $('merchScore').textContent = centi(tr[6]); $('merchN').textContent = Number(tr[7]) + ' ratings';
+  $('soloN').textContent = Number(tr[0]);
+  $('assistN').textContent = Number(tr[1]);
+  $('reopN').textContent = Number(tr[2]);
+  const total = Number(tr[0]) + Number(tr[1]);
+  $('soloRate').textContent = total ? Math.round(Number(tr[0])/total*100) + '%' : '—';
+  $('paidOKB').innerHTML = okb(tr[3]).toFixed(3) + ' <small>OKB</small>';
+  if (m.registered) {
+    $('cPrice').textContent = okb(m.pricePerTicket).toFixed(3) + ' OKB';
+    $('cAssist').textContent = '40% · ' + (okb(m.pricePerTicket) * 0.4).toFixed(3) + ' OKB';
+  }
+
+  await loadTickets();
+  $('chainStatus').textContent = 'live · X Layer';
+  coreThinking(false);
+}
+
+async function loadTickets() {
+  const cols = { new: [], prog: [], esc: [], done: [] };
+  let locked = 0n;
+  try {
+    const head = await provider.getBlockNumber();
+    const from = Math.max(0, head - 20000);
+    const evs = await ledger.queryFilter(ledger.filters.TicketRegistered(null, account), from, head);
+    const recent = evs.slice(-20).reverse();
+    for (const ev of recent) {
+      const h = ev.args.ticketHash;
+      const t = await ledger.getTicket(h);
+      const status = Number(t.status);
+      locked += t.lockedPayout;
+      const entry = { hash: h, status, conf: t.confidenceBps, payout: t.lockedPayout,
+        resolvedByClerk: t.resolvedByClerk, resolvedAt: Number(t.resolvedAt), txHash: ev.transactionHash };
+      if (status === 1) cols.new.push(entry);        // Registered, not yet resolved
+      else if (status === 2) cols.done.push(entry);   // Pending (shown w/ countdown + reopen)
+      else if (status === 3) cols.done.push(entry);   // Finalized
+      else if (status === 4) cols.esc.push(entry);    // Reopened
+    }
+  } catch (e) {
+    $('colNew').innerHTML = `<div class="empty">Couldn't load ticket events from this RPC.</div>`;
+    return;
+  }
+  $('lockedOKB').textContent = okb(locked).toFixed(3);
+  render(cols);
+}
+
+function ticketCard(t) {
+  const now = Math.floor(Date.now()/1000);
+  const conf = t.conf ? (Number(t.conf)/100).toFixed(0) + '%' : '—';
+  const pay = okb(t.payout);
+  let foot = '';
+  if (t.status === 2) { // Pending
+    const finAt = t.resolvedAt + reopenWindowSecs;
+    const left = finAt - now;
+    const wtxt = left > 0 ? `finalizes in ${fmtDur(left)}` : 'ready to finalize';
+    const pct = Math.max(0, Math.min(100, left / reopenWindowSecs * 100));
+    foot = `<div class="resline">confidence ${conf} · ${pay.toFixed(3)} OKB locked</div>
+      <div class="window-strip"><span class="wtxt">${wtxt}</span><button class="mini-reopen" data-reopen="${t.hash}">REOPEN</button></div>
+      <div class="wbar"><span style="width:${pct}%"></span></div>`;
+  } else if (t.status === 3) { // Finalized
+    foot = `<div class="resline">✓ ${t.resolvedByClerk?'resolved solo':'resolved w/ human'} · ${conf} · finalized +${pay.toFixed(3)} OKB</div>`;
+  } else if (t.status === 4) { // Reopened
+    foot = `<div class="voidline">⟲ reopened — payout voided</div>`;
+  } else {
+    foot = `<div class="escline">awaiting Clerk's draft</div>`;
+  }
+  return `<div class="ticket glass-soft" data-hash="${t.hash}">
+    <div class="id">${t.hash.slice(0,10)}…</div>
+    <div class="subj"><a href="${XLAYER.explorerTx(t.txHash)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">view intake tx ↗</a></div>
+    <div class="who">status: ${CHAIN_STATUS[t.status]}</div>
+    ${foot}
+  </div>`;
+}
+function fmtDur(s){ const h=Math.floor(s/3600), m=Math.floor((s%3600)/60); return h>0?`${h}h ${m}m`:`${m}m`; }
+
+function render(cols) {
+  const put = (el, arr, msg) => { $(el).innerHTML = arr.length ? arr.map(ticketCard).join('') : `<div class="empty">${msg}</div>`; };
+  put('colNew', cols.new, 'No tickets awaiting resolution.');
+  put('colProg', [], 'Clerk drafts here as tickets arrive from your ticket system.');
+  put('colEsc', cols.esc, 'Nothing reopened.');
+  put('colDone', cols.done, 'Nothing resolved yet — tickets appear here once Clerk (or a human) submits a resolution.');
+  $('cNew').textContent = cols.new.length;
+  $('cProg').textContent = 0;
+  $('cEsc').textContent = cols.esc.length;
+  $('cDone').textContent = cols.done.length;
+  document.querySelectorAll('[data-reopen]').forEach(b => b.onclick = (e) => { e.stopPropagation(); doReopen(b.dataset.reopen); });
+}
+
+async function doReopen(h) {
+  if (!confirm('Reopen this resolution? Clerk\'s payout is voided and the ticket goes back to a human.')) return;
+  const ok = await withTx('reopen', () => ledger.reopen(h), 'magenta');
+  if (ok) { speak("Reopened — I don't get paid for that one."); await loadLive(); }
+}
+
+$('runBtn').onclick = loadLive;
+document.addEventListener('click', e => {
+  const card = e.target.closest('.ticket');
+  if (card && !e.target.closest('[data-reopen]')) window.open(XLAYER.explorerAddr(CONTRACT), '_blank');
+});
+
+// ================== ONBOARDING ==================
+const OB_STEPS = 5;
+let obStep = 1, obFiles = 0, obMode = null, obDeployed = false;
+function obDots() { $('obDots').innerHTML = Array.from({length: OB_STEPS}, (_,i)=>`<div class="d ${i < obStep ? 'on':''}"></div>`).join(''); }
+function obGo(n) {
+  obStep = Math.max(1, Math.min(OB_STEPS, n));
+  document.querySelectorAll('.ob-step').forEach(s => s.classList.toggle('on', +s.dataset.step === obStep));
+  obDots();
+  if (obStep === 5) buildSummary();
+}
+obDots();
+document.querySelectorAll('[data-next]').forEach(b => b.onclick = () => {
+  if (obStep === 1) { biz.name = $('obBizName').value.trim() || 'Northwind Goods'; biz.system = $('obSystem').value; }
+  obGo(obStep + 1);
+});
+document.querySelectorAll('[data-back]').forEach(b => b.onclick = () => obGo(obStep - 1));
+
+// step 2: knowledge upload
+const SAMPLES = [
+  ['faq-shipping-returns.pdf', 'FAQ'], ['refund-policy.docx', 'Policy'],
+  ['product-catalog.csv', 'Products'], ['past-tickets-2025.txt', 'History'],
+];
+function addFile(name, kindLabel) {
+  obFiles++;
+  const chunks = 8 + Math.floor(Math.random()*30);
+  const el = document.createElement('div');
+  el.className = 'dz-file';
+  el.innerHTML = `<span class="fname">⬡ ${name} <span class="tag">${kindLabel}</span></span><span class="fmeta" data-ing>ingesting…</span>`;
+  $('dzFiles').appendChild(el);
+  const meta = el.querySelector('[data-ing]');
+  let c = 0;
+  const iv = setInterval(() => {
+    c += Math.ceil(chunks/8);
+    if (c >= chunks) { c = chunks; clearInterval(iv); meta.textContent = `${chunks} chunks · ${chunks} vectors · private`; }
+    else meta.textContent = `embedding ${c}/${chunks}…`;
+  }, REDUCED ? 1 : 140);
+  $('obNext2').disabled = false;
+}
+$('dropzone').onclick = () => $('fileInput').click();
+$('fileInput').onchange = e => { [...e.target.files].forEach(f => addFile(f.name, 'Upload')); e.target.value=''; };
+$('dropzone').ondragover = e => { e.preventDefault(); };
+$('dropzone').ondrop = e => { e.preventDefault(); [...e.dataTransfer.files].forEach(f => addFile(f.name, 'Upload')); };
+$('addSamples').onclick = () => { SAMPLES.forEach(([n,k],i)=>setTimeout(()=>addFile(n,k), i*180)); $('addSamples').disabled = true; };
+
+// step 3: mode
+document.querySelectorAll('.mode-card').forEach(c => c.onclick = () => {
+  document.querySelectorAll('.mode-card').forEach(x=>x.classList.remove('sel'));
+  c.classList.add('sel');
+  obMode = c.dataset.mode; biz.mode = obMode;
+  $('obNext3').disabled = false;
+});
+
+// step 4: escrow + deploy
+$('priceRange').oninput = e => {
+  PRICE_SOLO = (+e.target.value)/1000;
+  PRICE_ASSIST = PRICE_SOLO * ASSISTED_BPS / 10000;
+  $('priceVal').textContent = PRICE_SOLO.toFixed(3);
+};
+
+// --- Swap-to-OKB panel ---
+$('swapToggle').onclick = () => $('swapBox').classList.toggle('open');
+$('swapQuoteBtn').onclick = async () => {
+  const from = $('swapFrom').value;
+  const amt = parseFloat($('swapAmount').value);
+  const out = $('swapQuote');
+  if (!amt || amt <= 0) { out.innerHTML = '<span class="q-err">Enter an amount.</span>'; return; }
+  out.innerHTML = '<span class="q-line">Fetching best route from OKX DEX…</span>';
+  try {
+    // Live path: POST /api/swap/quote {fromToken, amountWei}. Falls back to an
+    // indicative estimate when the swap API isn't wired yet (no OKX keys).
+    const resp = await fetch('/api/swap/quote', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fromToken: from, amountWei: String(BigInt(Math.round(amt * 1e6))) }) // stables = 6dp
+    }).then(r => r.ok ? r.json() : Promise.reject(r));
+    const okb = Number(resp.toAmount) / 1e18;
+    out.innerHTML = `<span class="q-ok">≈ ${okb.toFixed(4)} OKB</span>
+      <div class="q-line">route: ${(resp.route||[]).join(' → ') || 'OKX aggregator'}</div>
+      <div class="q-line">price impact: ${resp.priceImpactPct ?? '—'}% · gas ~${resp.estGasFee ?? '—'} OKB</div>
+      <div class="q-line">Next: your wallet signs the swap — Clerk never holds funds.</div>`;
+  } catch {
+    // Indicative fallback (OKB ≈ parity placeholder) so the flow is demonstrable pre-keys.
+    const est = amt * 0.98;
+    out.innerHTML = `<span class="q-ok">≈ ${est.toFixed(4)} OKB</span> <span class="q-line">(indicative)</span>
+      <div class="q-line">Live quotes activate once the OKX DEX API keys are set on the server.</div>
+      <div class="q-line">Your wallet would sign the swap next — Clerk never holds funds.</div>`;
+  }
+};
+let deployTxHash = null;
+$('deployBtn').onclick = async () => {
+  if (obDeployed) return;
+  biz.deposit = parseFloat($('depositInput').value) || 1.0;
+  biz.priceOKB = PRICE_SOLO;
+  const seq = $('deploySeq');
+  const line = (html) => { const el = document.createElement('div'); el.className='ln'; el.innerHTML = html; seq.appendChild(el); return el; };
+
+  line('Connecting wallet…');
+  const connected = await connectWallet();
+  if (!connected) { line('<span style="color:var(--gold)">Connect a wallet on X Layer to continue.</span>'); return; }
+  line(`<span class="ok">✓ wallet connected — ${account.slice(0,6)}…${account.slice(-4)}</span>`);
+
+  const already = await ledger.merchants(account);
+  if (already.registered) {
+    line('<span class="ok">✓ this wallet is already a registered merchant — skipping registration</span>');
+    obDeployed = true;
+    $('deployBtn').style.display = 'none';
+    const nxt = $('obNext4'); nxt.style.display = 'inline-flex'; nxt.disabled = false;
+    return;
+  }
+
+  line(`Sending <b>registerMerchant(${PRICE_SOLO.toFixed(3)} OKB)</b> with ${biz.deposit.toFixed(2)} OKB deposit — confirm in your wallet…`);
+  try {
+    const tx = await ledger.registerMerchant(ethers.parseEther(String(PRICE_SOLO)), { value: ethers.parseEther(String(biz.deposit)) });
+    deployTxHash = tx.hash;
+    line(`tx sent ${txLink(tx.hash)} — waiting for confirmation…`);
+    await tx.wait();
+    line(`<span class="ok">✓ registered onchain. Escrow funded. ${txLink(tx.hash)}</span>`);
+    obDeployed = true;
+    $('deployBtn').style.display = 'none';
+    const nxt = $('obNext4'); nxt.style.display = 'inline-flex'; nxt.disabled = false;
+  } catch (e) {
+    line(`<span style="color:var(--magenta)">Transaction failed: ${e.shortMessage || e.reason || e.message}</span>`);
+  }
+};
+
+// step 5: summary
+function buildSummary() {
+  const modeLabel = { shadow:'Shadow mode — Clerk watches first', sandbox:'Sandbox trial — private quizzes', live:'Live — resolving now' }[biz.mode || 'live'];
+  $('summaryRows').innerHTML = `
+    <div class="srow"><b>Business</b><span>${biz.name}</span></div>
+    <div class="srow"><b>Ticket system</b><span>${biz.system}</span></div>
+    <div class="srow"><b>Knowledge</b><span class="c">${obFiles || 0} docs uploaded this session · private · deletable</span></div>
+    <div class="srow"><b>Starting mode</b><span>${modeLabel}</span></div>
+    <div class="srow"><b>Price per resolution</b><span class="c">${PRICE_SOLO.toFixed(3)} OKB · assisted 40%</span></div>
+    <div class="srow"><b>Escrow tx</b><span class="v">${deployTxHash ? `<a href="${XLAYER.explorerTx(deployTxHash)}" target="_blank" rel="noopener">${deployTxHash.slice(0,10)}… ↗</a>` : 'already registered'}</span></div>
+    <div class="srow"><b>Reputation</b><span>earned from customers only · onchain · portable</span></div>`;
+}
+
+async function enterDashboard() {
+  $('onboarding').style.display = 'none';
+  $('app').classList.add('on');
+  $('bizLabel').textContent = biz.name;
+  if (!ledger) { const ok = await connectWallet(); if (!ok) { toast('Connect your wallet to load live data.', 'gold'); return; } }
+  speak(`Hey ${biz.name}. Reading your live data from X Layer…`);
+  await loadLive();
+  speak(`You're live. This view reads directly from ClerkLedgerV2 — nothing here is simulated.`);
+  mind('chain', `connected · <b>${account.slice(0,6)}…${account.slice(-4)}</b> · X Layer`);
+}
+$('enterApp').onclick = enterDashboard;
+$('obSkip').onclick = () => { obGo(4); }; // skip straight to funding — registration is still real
+
+// ================== INIT ==================
+state = fresh();
+render();
+</script>

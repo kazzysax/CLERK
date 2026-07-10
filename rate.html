@@ -1,0 +1,76 @@
+<!doctype html>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>How did we do?</title>
+<style>
+  :root { --void:#05060E; --paper:#E8ECFF; --muted:#8B94BC; --cyan:#22F3EE; --line:rgba(124,134,173,.2); }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body {
+    background:var(--void); color:var(--paper);
+    font-family:'Inter',-apple-system,system-ui,sans-serif;
+    min-height:100vh; display:grid; place-items:center; padding:24px;
+  }
+  .card {
+    width:100%; max-width:400px; text-align:center; padding:40px 28px;
+    background:rgba(15,19,36,.7); border:1px solid var(--line); border-radius:20px;
+  }
+  h1 { font-size:20px; font-weight:600; margin-bottom:8px; }
+  p { color:var(--muted); font-size:13.5px; line-height:1.6; }
+  .stars { display:flex; justify-content:center; gap:10px; margin:30px 0 8px; }
+  .stars button {
+    font-size:38px; background:none; border:none; cursor:pointer;
+    color:rgba(124,134,173,.35); transition:color .12s, transform .12s;
+    padding:4px; line-height:1;
+  }
+  .stars button:hover, .stars button.on { color:var(--cyan); text-shadow:0 0 20px rgba(34,243,238,.5); }
+  .stars button:hover { transform:scale(1.15); }
+  .hint { font-size:11px; color:var(--muted); min-height:16px; }
+  .done { display:none; }
+  .done .big { font-size:44px; margin-bottom:14px; }
+  .err { color:#FF3DA6; font-size:12.5px; margin-top:14px; min-height:16px; }
+  @media (prefers-reduced-motion: reduce) { * { transition:none !important; } }
+</style>
+<div class="card">
+  <div id="ask">
+    <h1>How did we do?</h1>
+    <p>You recently contacted support. One tap tells us whether your issue was truly resolved.</p>
+    <div class="stars" id="stars">
+      <button data-v="1" aria-label="1 star">★</button>
+      <button data-v="2" aria-label="2 stars">★</button>
+      <button data-v="3" aria-label="3 stars">★</button>
+      <button data-v="4" aria-label="4 stars">★</button>
+      <button data-v="5" aria-label="5 stars">★</button>
+    </div>
+    <div class="hint" id="hint">Tap a star — that's it.</div>
+    <div class="err" id="err"></div>
+  </div>
+  <div class="done" id="done">
+    <div class="big">✓</div>
+    <h1>Thank you</h1>
+    <p id="doneMsg">Your rating is recorded. It directly shapes the quality of the support you get next time.</p>
+  </div>
+</div>
+<script>
+  var token = location.pathname.split('/').pop();
+  var labels = { 1:'Not resolved at all', 2:'Poorly handled', 3:'Okay', 4:'Good', 5:'Perfectly resolved' };
+  var stars = document.querySelectorAll('#stars button');
+  var sending = false;
+  stars.forEach(function (b) {
+    b.addEventListener('mouseenter', function () { paint(+b.dataset.v); document.getElementById('hint').textContent = labels[+b.dataset.v]; });
+    b.addEventListener('mouseleave', function () { paint(0); document.getElementById('hint').textContent = "Tap a star — that's it."; });
+    b.addEventListener('click', function () { submit(+b.dataset.v); });
+  });
+  function paint(n) { stars.forEach(function (s) { s.classList.toggle('on', +s.dataset.v <= n); }); }
+  function submit(v) {
+    if (sending) return; sending = true; paint(v);
+    fetch('/api/rate', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: token, rating: v })
+    }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (res) {
+        if (res.ok) { document.getElementById('ask').style.display = 'none'; document.getElementById('done').style.display = 'block'; }
+        else { sending = false; document.getElementById('err').textContent = res.j.error || 'Something went wrong — try the link again.'; }
+      })
+      .catch(function () { sending = false; document.getElementById('err').textContent = 'Network error — check your connection and tap again.'; });
+  }
+</script>

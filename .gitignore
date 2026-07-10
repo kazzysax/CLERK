@@ -1,0 +1,21 @@
+# Secrets — never commit
+.env
+.env.local
+
+# Dependencies
+node_modules/
+
+# Hardhat build output
+artifacts/
+cache/
+typechain/
+typechain-types/
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*

@@ -8,8 +8,9 @@
   "scripts": {
     "test": "hardhat test --config hardhat.test.config.cjs",
     "test:conversation": "node conversation.test.mjs",
-    "deploy:testnet": "hardhat run scripts/deploy-v2.cjs --config hardhat.config.cjs --network xlayerTestnet",
-    "deploy:mainnet": "hardhat run scripts/deploy-v2.cjs --config hardhat.config.cjs --network xlayer",
+    "deploy:testnet": "hardhat run scripts/deploy-reputation.cjs --config hardhat.config.cjs --network xlayerTestnet",
+    "deploy:mainnet": "hardhat run scripts/deploy-reputation.cjs --config hardhat.config.cjs --network xlayer",
+    "deploy:v2:testnet": "hardhat run scripts/deploy-v2.cjs --config hardhat.config.cjs --network xlayerTestnet",
     "start": "node server.mjs"
   },
   "keywords": [

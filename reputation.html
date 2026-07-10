@@ -141,13 +141,12 @@
     catch (e) { $("#content").innerHTML = `<div class="err">Couldn't read the contract at ${CONTRACT}. Is the address correct for ${NET.name}?</div>`; return; }
 
     const solo = Number(tr[0]), assisted = Number(tr[1]), reopened = Number(tr[2]);
-    const paidOut = okb(tr[3]);
+    const finalized = Number(tr[3]); // count — no OKB fees
     const custScore = centi(tr[4]), custN = Number(tr[5]);
     const merchScore = centi(tr[6]), merchN = Number(tr[7]);
     const total = solo + assisted;
     const soloRate = total ? Math.round(solo / total * 100) : 0;
 
-    // Recent finalized resolutions from events (last ~5000 blocks).
     let rows = "";
     try {
       const head = await provider.getBlockNumber();
@@ -157,13 +156,12 @@
       for (const ev of recent) {
         const h = ev.args.ticketHash;
         const byClerk = ev.args.resolvedByClerk;
-        const pay = okb(ev.args.payout);
         rows += `<div class="lrow">
           <a class="hash" href="${NET.explorerTx(ev.transactionHash)}" target="_blank" rel="noopener">${h.slice(0,8)}…</a>
           <span class="kind ${byClerk?'':'assist'}">${byClerk?'Resolved solo':'Resolved w/ human'}</span>
           <span class="conf"></span>
           <span class="lstate final">FINAL</span>
-          <span class="pay">+${pay.toFixed(3)} OKB</span>
+          <span class="pay">accuracy ✓</span>
         </div>`;
       }
       if (!recent.length) rows = `<div class="lrow"><span class="kind" style="grid-column:1/-1;color:var(--muted)">No finalized resolutions in the recent block window yet.</span></div>`;
@@ -177,7 +175,7 @@
           <div class="lbl">Customer rating</div>
           <div class="big">${custScore}<span class="of">/5</span></div>
           <div style="color:var(--cyan)">${stars(custScore)}</div>
-          <div class="n">${custN} rating${custN===1?'':'s'} · from customers Clerk served</div>
+          <div class="n">${custN} rating${custN===1?'':'s'} · from customers clerk.io served</div>
         </div>
         <div class="scard merch">
           <div class="lbl">Merchant rating</div>
@@ -194,12 +192,12 @@
         <div class="stat"><div class="k">Reopened</div><div class="v m">${reopened.toLocaleString()}</div></div>
       </div>
 
-      <div class="section-t">Recent finalized resolutions <span class="chip">onchain events</span></div>
+      <div class="section-t">Recent finalized resolutions <span class="chip">onchain · no fees</span></div>
       <div class="ledger">${rows}</div>
 
       <div class="foot">
-        Total paid to Clerk, all-time: <b style="color:var(--cyan)">${paidOut.toFixed(3)} OKB</b> — released only after each ticket's reopen window closed.<br>
-        Scores use a confidence-weighted Bayesian average (prior 3.50, weight 20): a low volume of ratings can't spike the number.
+        Finalized resolutions (all-time): <b style="color:var(--cyan)">${finalized.toLocaleString()}</b> — accuracy only; <b>no OKB paid to clerk.io</b>.<br>
+        Scores use a Bayesian average (prior 3.50, weight 20). Ticket hashes, ratings, and reopens are public and permanent.
         <div class="contract-line">contract: <a href="${NET.explorerAddr(CONTRACT)}" target="_blank" rel="noopener">${CONTRACT}</a></div>
       </div>`;
   }

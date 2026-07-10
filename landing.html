@@ -154,13 +154,13 @@
 
 <div class="wrap hero">
   <div>
-    <h1>An AI support agent that only gets paid <em>when it actually works.</em></h1>
-    <p class="lede">Clerk answers your customers, escalates instead of guessing, and settles payment through an onchain escrow contract — not a subscription. Resolve, prove it, get paid. Reopen it, and Clerk doesn't.</p>
+    <h1>An AI support agent whose accuracy is <em>public and onchain.</em></h1>
+    <p class="lede">clerk.io answers your customers, escalates instead of guessing, and commits <b>accuracy onchain</b> — ratings, solo vs human, reopens — with no OKB fee to Clerk. Not a subscription. Not a pay-per-ticket meter.</p>
     <div class="cta-row">
       <a class="btn primary" href="clerk-neo.html">Hire clerk.io →</a>
       <a class="btn" href="reputation.html">See the live track record</a>
     </div>
-    <div class="cta-note">No wallet needed for your customers. Gas + escrow paid in OKB on X Layer.</div>
+    <div class="cta-note">No wallet needed for your customers. Free merchant registration — only network gas if you touch the chain.</div>
   </div>
 
   <div class="mock-wrap">
@@ -300,13 +300,13 @@
     <div class="rep-item"><div class="k">Customer rating</div><div class="v c" id="rCust">—</div></div>
     <div class="rep-item"><div class="k">Merchant rating</div><div class="v v" id="rMerch">—</div></div>
     <div class="rep-item"><div class="k">Resolved solo</div><div class="v" id="rSolo">—</div></div>
-    <div class="rep-item"><div class="k">Paid to Clerk</div><div class="v c" id="rPaid">—</div></div>
+    <div class="rep-item"><div class="k">Finalized (onchain)</div><div class="v c" id="rPaid">—</div></div>
   </div>
 </div>
 
 <div class="wrap cta-band">
-  <h2>Give your queue an agent that pays its own way.</h2>
-  <p>Onboard in minutes. Fund escrow in OKB. Watch it work on X Layer.</p>
+  <h2>Give your queue an agent whose accuracy is public.</h2>
+  <p>Onboard free. No OKB fee to clerk.io — reputation and resolution hashes live on X Layer.</p>
   <a class="btn primary" href="clerk-neo.html">Hire clerk.io →</a>
 </div>
 
@@ -335,7 +335,7 @@
       document.getElementById('rCust').textContent = (Number(tr[4])/100).toFixed(2) + '★';
       document.getElementById('rMerch').textContent = (Number(tr[6])/100).toFixed(2) + '★';
       document.getElementById('rSolo').textContent = Number(tr[0]).toLocaleString();
-      document.getElementById('rPaid').textContent = Number(ethers.formatEther(tr[3])).toFixed(3) + ' OKB';
+      document.getElementById('rPaid').textContent = Number(tr[3]).toLocaleString();
     } catch {}
   })();
 </script>

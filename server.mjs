@@ -78,9 +78,19 @@ const provider = new ethers.FallbackProvider([
   { provider: new ethers.JsonRpcProvider(NET.rpcFallback, NET.chainId), priority: 2, weight: 1 },
 ], NET.chainId);
 const operator = new ethers.Wallet(ENV.OPERATOR_PRIVATE_KEY, provider);
+// ClerkReputation: onchain accuracy only — no OKB escrow / fees to Clerk
+const ledgerAbiPath = (() => {
+  try {
+    const p = new URL("./contracts/ClerkReputation.abi.json", import.meta.url);
+    readFileSync(p);
+    return p;
+  } catch {
+    return new URL("./contracts/ClerkLedgerV2.abi.json", import.meta.url);
+  }
+})();
 const ledger = new ethers.Contract(
   ENV.CLERK_LEDGER_ADDRESS,
-  JSON.parse(readFileSync(new URL("./contracts/ClerkLedgerV2.abi.json", import.meta.url), "utf8")),
+  JSON.parse(readFileSync(ledgerAbiPath, "utf8")),
   operator
 );
 

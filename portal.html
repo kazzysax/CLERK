@@ -126,9 +126,9 @@
     <div class="g-in">
       <div class="orb" style="width:60px;height:60px;margin:0 auto"></div>
       <div class="big">Your support desk, <em>on X Layer</em>.</div>
-      <p>Connect your wallet to fund Clerk's escrow, watch it resolve tickets, and reopen any resolution you're not happy with — all onchain, all yours.</p>
+      <p>Connect your wallet to register for free. clerk.io stores accuracy onchain — ratings, solo vs human, reopens — with <b style="color:var(--paper)">no OKB fee to Clerk</b>.</p>
       <button class="btn primary" id="connectBtn2">Connect wallet to begin</button>
-      <div class="muted-note">Works with OKX Wallet, MetaMask, or any injected EVM wallet. Gas is paid in OKB.<br><br><b style="color:var(--gold)">OKX users:</b> turn <b>OFF Testnet Mode</b> (Settings → Preferences) before connecting — OKX treats X Layer Testnet (1952) as a mainnet network.</div>
+      <div class="muted-note">Works with OKX Wallet, MetaMask, or any injected EVM wallet. Tiny network gas in OKB may apply — that is not a Clerk fee.<br><br><b style="color:var(--gold)">OKX users:</b> turn <b>OFF Testnet Mode</b> (Settings → Preferences) before connecting — OKX treats X Layer Testnet (1952) as a mainnet network.</div>
     </div>
   </div>
 
@@ -136,38 +136,25 @@
   <div id="console" class="hidden">
     <!-- not registered yet -->
     <div id="registerCard" class="glass card hidden" style="margin-bottom:16px">
-      <div class="ct">Hire clerk.io <span class="chip">registerMerchant()</span></div>
-      <div class="row2">
-        <div class="field">
-          <label>Price per solo resolution (OKB)</label>
-          <input id="regPrice" value="0.05" />
-        </div>
-        <div class="field">
-          <label>Initial escrow deposit (OKB)</label>
-          <input id="regDeposit" value="1.0" />
-        </div>
-      </div>
-      <button class="btn primary" id="registerBtn" style="width:100%;justify-content:center">Register &amp; fund escrow</button>
-      <div class="muted-note">Assisted resolutions (a human finishes what Clerk drafted) pay 40% of your price. You can change price anytime, and withdraw any un-locked escrow whenever you want.</div>
+      <div class="ct">Activate clerk.io <span class="chip">registerMerchant() · free</span></div>
+      <p class="muted-note" style="margin-bottom:14px">No deposit. No price per ticket. Onchain record is for <b style="color:var(--paper)">accuracy &amp; reputation only</b>.</p>
+      <button class="btn primary" id="registerBtn" style="width:100%;justify-content:center">Register free (gas only)</button>
     </div>
 
     <!-- registered dashboard -->
     <div id="dash" class="hidden">
       <div class="grid" style="margin-bottom:16px">
         <div class="glass card">
-          <div class="ct">Escrow <span class="chip">live from contract</span></div>
+          <div class="ct">Account <span class="chip">no escrow</span></div>
           <div class="balances">
-            <div class="bal"><div class="k">Free</div><div class="v c" id="balFree">—</div></div>
-            <div class="bal"><div class="k">Locked</div><div class="v g" id="balLocked">—</div></div>
-            <div class="bal"><div class="k">Wallet OKB</div><div class="v v" id="balWallet">—</div></div>
+            <div class="bal"><div class="k">Status</div><div class="v c" id="balFree">Active</div></div>
+            <div class="bal"><div class="k">Accuracy ledger</div><div class="v g" id="balLocked">Onchain</div></div>
+            <div class="bal"><div class="k">Wallet gas</div><div class="v v" id="balWallet">—</div></div>
           </div>
-          <div class="row2" style="margin-top:14px">
-            <button class="btn violet sm" id="depositBtn">＋ Deposit</button>
-            <button class="btn sm" id="withdrawBtn">Withdraw free</button>
-          </div>
+          <div class="muted-note" style="margin-top:12px">You do not pay OKB to clerk.io. Gas for wallet txs is network-native only.</div>
         </div>
         <div class="glass card">
-          <div class="ct">Clerk's reputation <span class="chip">onchain</span></div>
+          <div class="ct">clerk.io reputation <span class="chip">onchain</span></div>
           <div class="scores">
             <div class="score cust"><div class="k">Customer</div><div class="v" id="cScore">—</div><div class="n" id="cN"></div></div>
             <div class="score merch"><div class="k">Merchant</div><div class="v" id="mScore">—</div><div class="n" id="mN"></div></div>
@@ -179,10 +166,10 @@
       <div class="glass card">
         <div class="ct">Your tickets <span class="chip" id="ticketCount">0</span></div>
         <div class="tickets">
-          <div class="thead"><span>ticket</span><span>status</span><span class="h-conf">confidence</span><span>payout</span><span>action</span></div>
+          <div class="thead"><span>ticket</span><span>status</span><span class="h-conf">confidence</span><span>accuracy</span><span>action</span></div>
           <div id="ticketRows"><div class="trow"><span style="grid-column:1/-1;color:var(--muted);font-family:var(--mono);font-size:11px">No tickets yet. They appear here as customers contact your support and Clerk works them.</span></div></div>
         </div>
-        <div class="muted-note">A ticket in <b style="color:var(--gold)">PENDING</b> is within its reopen window — press Reopen to void Clerk's payout if the issue wasn't really solved. After the window it finalizes and pays out.</div>
+        <div class="muted-note">A ticket in <b style="color:var(--gold)">PENDING</b> is inside its reopen window — press Reopen if the issue was not really solved (voids that resolution’s accuracy claim). After the window it finalizes onchain.</div>
       </div>
     </div>
   </div>
@@ -265,7 +252,7 @@
   async function refresh() {
     const m = await ledger.merchants(account);
     const walletBal = await provider.getBalance(account);
-    $("#balWallet").innerHTML = fmt(walletBal).toFixed(3)+' <small>OKB</small>';
+    $("#balWallet").innerHTML = fmt(walletBal).toFixed(4)+' <small>OKB gas</small>';
 
     if (!m.registered) {
       $("#registerCard").classList.remove("hidden");
@@ -274,20 +261,19 @@
     }
     $("#registerCard").classList.add("hidden");
     $("#dash").classList.remove("hidden");
-    $("#balFree").innerHTML = fmt(m.escrow).toFixed(3)+' <small>OKB</small>';
+    $("#balFree").textContent = "Active";
+    $("#balLocked").textContent = "Onchain";
 
-    // reputation (global track record)
     const tr = await ledger.trackRecord();
     $("#cScore").textContent = centi(tr[4]); $("#cN").textContent = Number(tr[5])+" ratings";
     $("#mScore").textContent = centi(tr[6]); $("#mN").textContent = Number(tr[7])+" ratings";
-    $("#repMeta").innerHTML = `${Number(tr[0])} solo · ${Number(tr[1])} assisted · ${Number(tr[2])} reopened · ${fmt(tr[3]).toFixed(3)} OKB paid to Clerk`;
+    $("#repMeta").innerHTML = `${Number(tr[0])} solo · ${Number(tr[1])} assisted · ${Number(tr[2])} reopened · ${Number(tr[3])} finalized · <b style="color:var(--cyan)">no fees</b>`;
 
-    await loadTickets(m);
+    await loadTickets();
   }
 
-  async function loadTickets(m) {
-    // Discover this merchant's tickets from TicketRegistered events, then read state.
-    let locked = 0n, rows = "", count = 0;
+  async function loadTickets() {
+    let rows = "", count = 0;
     try {
       const head = await provider.getBlockNumber();
       const from = Math.max(0, head - 20000);
@@ -299,11 +285,10 @@
         const h = ev.args.ticketHash;
         const t = await ledger.getTicket(h);
         const st = STATUS[Number(t.status)];
-        locked += t.lockedPayout;
         const conf = t.confidenceBps ? (Number(t.confidenceBps)/100).toFixed(0)+"%" : "—";
-        const pay = fmt(t.lockedPayout);
+        const who = Number(t.status) >= 2 ? (t.resolvedByClerk ? "solo" : "human") : "—";
         let action = "—", cd = "";
-        if (Number(t.status) === 2) { // Pending
+        if (Number(t.status) === 2) {
           const finAt = Number(t.resolvedAt) + Number(reopenWindow);
           const left = finAt - now;
           cd = left>0 ? `<div class="cd">finalizes in ${fmtDur(left)}</div>` : `<div class="cd">ready to finalize</div>`;
@@ -313,13 +298,12 @@
           <a class="hash" href="${XLAYER.explorerTx(ev.transactionHash)}" target="_blank" rel="noopener">${h.slice(0,8)}…</a>
           <span><span class="st ${st.toLowerCase()}">${st}</span>${cd}</span>
           <span class="t-conf">${conf}</span>
-          <span class="cd">${pay>0?pay.toFixed(3)+" OKB":"—"}</span>
+          <span class="cd">${who}</span>
           <span>${action}</span>
         </div>`;
       }
     } catch(e){ rows = `<div class="trow"><span style="grid-column:1/-1;color:var(--muted);font-family:var(--mono);font-size:11px">Couldn't load ticket events from this RPC.</span></div>`; }
 
-    $("#balLocked").innerHTML = fmt(locked).toFixed(3)+' <small>OKB</small>';
     $("#ticketCount").textContent = count;
     $("#ticketRows").innerHTML = rows || `<div class="trow"><span style="grid-column:1/-1;color:var(--muted);font-family:var(--mono);font-size:11px">No tickets yet.</span></div>`;
     document.querySelectorAll("[data-reopen]").forEach(b=>b.onclick=()=>doReopen(b.dataset.reopen));
@@ -333,27 +317,14 @@
   }
 
   async function register() {
-    const price = ethers.parseEther($("#regPrice").value || "0.05");
-    const dep = ethers.parseEther($("#regDeposit").value || "1.0");
-    await withTx("registerMerchant", ()=>ledger.registerMerchant(price, { value: dep }), "violet");
-  }
-  async function deposit() {
-    const amt = prompt("Deposit how much OKB into escrow?", "0.5"); if(!amt) return;
-    await withTx("depositEscrow", ()=>ledger.depositEscrow({ value: ethers.parseEther(amt) }), "violet");
-  }
-  async function withdraw() {
-    const m = await ledger.merchants(account);
-    const amt = prompt(`Withdraw how much free OKB? (available: ${fmt(m.escrow).toFixed(3)})`, fmt(m.escrow).toFixed(3)); if(!amt) return;
-    await withTx("withdrawEscrow", ()=>ledger.withdrawEscrow(ethers.parseEther(amt)));
+    await withTx("registerMerchant", ()=>ledger.registerMerchant(), "violet");
   }
   async function doReopen(h) {
-    if(!confirm("Reopen this resolution? Clerk's payout is voided and the ticket goes back to a human.")) return;
+    if(!confirm("Reopen this resolution? The accuracy claim is voided onchain and the ticket returns to a human.")) return;
     await withTx("reopen", ()=>ledger.reopen(h), "magenta");
   }
 
   $("#connectBtn").onclick = connect;
   $("#connectBtn2").onclick = connect;
   $("#registerBtn").onclick = register;
-  $("#depositBtn").onclick = deposit;
-  $("#withdrawBtn").onclick = withdraw;
 </script>

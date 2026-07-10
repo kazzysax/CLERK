@@ -559,27 +559,28 @@
       <!-- STEP 4 -->
       <div class="ob-step" data-step="4">
         <div class="eyebrow">Step 4 of 5</div>
-        <div class="ob-h">Set my rate</div>
-        <p class="ob-p">You only pay when I resolve a ticket — held in escrow until then.</p>
+        <div class="ob-h">Go onchain — free</div>
+        <p class="ob-p">No OKB fee to clerk.io. Register your wallet so accuracy (ratings, reopens, solo vs human) can be written on X Layer. Tiny network gas only.</p>
         <div class="escrow-grid">
           <div class="field">
-            <label>Price per resolution</label>
-            <div class="price-readout"><span id="priceVal">0.050</span> OKB <small>· 40% if a human helps</small></div>
-            <input type="range" id="priceRange" min="10" max="200" value="50" />
+            <label>What gets stored onchain</label>
+            <div class="price-readout" style="font-size:15px;line-height:1.4">Ticket hashes · confidence · ratings · reopens<br><small style="color:var(--muted)">Never customer PII · never a pay-per-ticket charge</small></div>
           </div>
           <div class="field">
-            <label>Starting deposit</label>
+            <label>Your wallet</label>
             <div class="wallet-chip">⬢ <span id="walletAddr">connect wallet →</span></div>
-            <input id="depositInput" value="1.0" style="font-family:var(--mono);margin-top:12px" />
+            <input id="depositInput" value="0" type="hidden" />
+            <input type="range" id="priceRange" min="10" max="200" value="50" style="display:none" />
+            <span id="priceVal" style="display:none">0</span>
           </div>
         </div>
-        <div class="swap-box" id="swapBox">
+        <div class="swap-box" id="swapBox" style="display:none">
           <div class="swap-head" id="swapToggle">
-            <span>⇄ Need OKB? Swap for it here</span>
+            <span>⇄ Need OKB gas? Swap for it here</span>
             <span class="swap-caret" id="swapCaret">▾</span>
           </div>
           <div class="swap-body" id="swapBody">
-            <p class="swap-note">Your wallet signs — Clerk never touches your funds.</p>
+            <p class="swap-note">Optional — only for network gas, not Clerk fees.</p>
             <div class="swap-row">
               <select id="swapFrom">
                 <option value="USDT">USDT</option>
@@ -646,23 +647,23 @@
       <div class="stat glass-soft"><div class="k">Human-assisted</div><div class="v g" id="assistN">0</div></div>
       <div class="stat glass-soft"><div class="k">Solo rate</div><div class="v" id="soloRate">—</div></div>
       <div class="stat glass-soft"><div class="k">Reopened</div><div class="v m" id="reopN">0</div></div>
-      <div class="stat glass-soft"><div class="k">Escrow locked</div><div class="v g" id="lockedOKB">0.000</div></div>
-      <div class="stat glass-soft"><div class="k">Paid out</div><div class="v c" id="paidOKB">0.000 <small>OKB</small></div></div>
+      <div class="stat glass-soft"><div class="k">Finalized</div><div class="v g" id="lockedOKB">0</div></div>
+      <div class="stat glass-soft"><div class="k">Fees to Clerk</div><div class="v c" id="paidOKB">none</div></div>
     </div>
 
     <div class="thresh glass-soft">
       <div class="tk"><span>Auto-send threshold</span><b>private</b></div>
       <div class="bar"><div class="fill" style="width:100%;opacity:.25"></div></div>
-      <div class="note">Calibrated per category on Clerk's backend — not public data. Publicly verifiable numbers are the reputation scores and ledger above.</div>
+      <div class="note">Calibrated per category on Clerk's backend — not public data. Publicly verifiable numbers are the reputation scores and ledger above. No OKB fee to clerk.io.</div>
     </div>
 
     <div class="contract glass-soft">
-      <div class="eyebrow" style="margin-bottom:8px">⛓ ClerkLedgerV2.sol</div>
+      <div class="eyebrow" style="margin-bottom:8px">⛓ ClerkReputation.sol</div>
       <div class="crow"><b>network</b><span id="cNetwork">X Layer</span></div>
       <div class="crow"><b>chainId</b><span id="cChainId">1952</span></div>
       <div class="crow"><b>contract</b><span class="addr" id="cAddr">—</span></div>
-      <div class="crow"><b>price / solo</b><span id="cPrice">—</span></div>
-      <div class="crow"><b>assisted</b><span id="cAssist">—</span></div>
+      <div class="crow"><b>pricing</b><span id="cPrice">free · accuracy only</span></div>
+      <div class="crow"><b>model</b><span id="cAssist">no escrow / no OKB fees</span></div>
       <div class="crow"><b>reopen window</b><span id="cWindow">—</span></div>
     </div>
   </aside>
@@ -828,10 +829,11 @@ async function loadLive() {
   $('reopN').textContent = Number(tr[2]);
   const total = Number(tr[0]) + Number(tr[1]);
   $('soloRate').textContent = total ? Math.round(Number(tr[0])/total*100) + '%' : '—';
-  $('paidOKB').innerHTML = okb(tr[3]).toFixed(3) + ' <small>OKB</small>';
+  $('paidOKB').textContent = 'none';
+  $('lockedOKB').textContent = String(Number(tr[3]));
   if (m.registered) {
-    $('cPrice').textContent = okb(m.pricePerTicket).toFixed(3) + ' OKB';
-    $('cAssist').textContent = '40% · ' + (okb(m.pricePerTicket) * 0.4).toFixed(3) + ' OKB';
+    $('cPrice').textContent = 'free · accuracy only';
+    $('cAssist').textContent = 'no escrow / no OKB fees';
   }
 
   await loadTickets();
@@ -841,7 +843,6 @@ async function loadLive() {
 
 async function loadTickets() {
   const cols = { new: [], prog: [], esc: [], done: [] };
-  let locked = 0n;
   try {
     const head = await provider.getBlockNumber();
     const from = Math.max(0, head - 20000);
@@ -851,39 +852,36 @@ async function loadTickets() {
       const h = ev.args.ticketHash;
       const t = await ledger.getTicket(h);
       const status = Number(t.status);
-      locked += t.lockedPayout;
-      const entry = { hash: h, status, conf: t.confidenceBps, payout: t.lockedPayout,
+      const entry = { hash: h, status, conf: t.confidenceBps,
         resolvedByClerk: t.resolvedByClerk, resolvedAt: Number(t.resolvedAt), txHash: ev.transactionHash };
-      if (status === 1) cols.new.push(entry);        // Registered, not yet resolved
-      else if (status === 2) cols.done.push(entry);   // Pending (shown w/ countdown + reopen)
-      else if (status === 3) cols.done.push(entry);   // Finalized
-      else if (status === 4) cols.esc.push(entry);    // Reopened
+      if (status === 1) cols.new.push(entry);
+      else if (status === 2) cols.done.push(entry);
+      else if (status === 3) cols.done.push(entry);
+      else if (status === 4) cols.esc.push(entry);
     }
   } catch (e) {
     $('colNew').innerHTML = `<div class="empty">Couldn't load ticket events from this RPC.</div>`;
     return;
   }
-  $('lockedOKB').textContent = okb(locked).toFixed(3);
   render(cols);
 }
 
 function ticketCard(t) {
   const now = Math.floor(Date.now()/1000);
   const conf = t.conf ? (Number(t.conf)/100).toFixed(0) + '%' : '—';
-  const pay = okb(t.payout);
   let foot = '';
-  if (t.status === 2) { // Pending
+  if (t.status === 2) {
     const finAt = t.resolvedAt + reopenWindowSecs;
     const left = finAt - now;
     const wtxt = left > 0 ? `finalizes in ${fmtDur(left)}` : 'ready to finalize';
     const pct = Math.max(0, Math.min(100, left / reopenWindowSecs * 100));
-    foot = `<div class="resline">confidence ${conf} · ${pay.toFixed(3)} OKB locked</div>
+    foot = `<div class="resline">confidence ${conf} · accuracy claim pending</div>
       <div class="window-strip"><span class="wtxt">${wtxt}</span><button class="mini-reopen" data-reopen="${t.hash}">REOPEN</button></div>
       <div class="wbar"><span style="width:${pct}%"></span></div>`;
-  } else if (t.status === 3) { // Finalized
-    foot = `<div class="resline">✓ ${t.resolvedByClerk?'resolved solo':'resolved w/ human'} · ${conf} · finalized +${pay.toFixed(3)} OKB</div>`;
-  } else if (t.status === 4) { // Reopened
-    foot = `<div class="voidline">⟲ reopened — payout voided</div>`;
+  } else if (t.status === 3) {
+    foot = `<div class="resline">✓ ${t.resolvedByClerk?'resolved solo':'resolved w/ human'} · ${conf} · finalized (no fee)</div>`;
+  } else if (t.status === 4) {
+    foot = `<div class="voidline">⟲ reopened — accuracy claim voided</div>`;
   } else {
     foot = `<div class="escline">awaiting Clerk's draft</div>`;
   }
@@ -910,9 +908,9 @@ function render(cols) {
 }
 
 async function doReopen(h) {
-  if (!confirm('Reopen this resolution? Clerk\'s payout is voided and the ticket goes back to a human.')) return;
+  if (!confirm('Reopen this resolution? The accuracy claim is voided onchain and the ticket goes back to a human.')) return;
   const ok = await withTx('reopen', () => ledger.reopen(h), 'magenta');
-  if (ok) { speak("Reopened — I don't get paid for that one."); await loadLive(); }
+  if (ok) { speak("Reopened — that resolution won't count as a clean win."); await loadLive(); }
 }
 
 $('runBtn').onclick = loadLive;
@@ -1030,13 +1028,13 @@ $('deployBtn').onclick = async () => {
     return;
   }
 
-  line(`Sending <b>registerMerchant(${PRICE_SOLO.toFixed(3)} OKB)</b> with ${biz.deposit.toFixed(2)} OKB deposit — confirm in your wallet…`);
+  line(`Sending <b>registerMerchant()</b> — free, no deposit. Confirm gas in your wallet…`);
   try {
-    const tx = await ledger.registerMerchant(ethers.parseEther(String(PRICE_SOLO)), { value: ethers.parseEther(String(biz.deposit)) });
+    const tx = await ledger.registerMerchant();
     deployTxHash = tx.hash;
     line(`tx sent ${txLink(tx.hash)} — waiting for confirmation…`);
     await tx.wait();
-    line(`<span class="ok">✓ registered onchain. Escrow funded. ${txLink(tx.hash)}</span>`);
+    line(`<span class="ok">✓ registered onchain. Accuracy ledger ready — no OKB fee to clerk.io. ${txLink(tx.hash)}</span>`);
     obDeployed = true;
     $('deployBtn').style.display = 'none';
     const nxt = $('obNext4'); nxt.style.display = 'inline-flex'; nxt.disabled = false;
@@ -1053,9 +1051,9 @@ function buildSummary() {
     <div class="srow"><b>Ticket system</b><span>${biz.system}</span></div>
     <div class="srow"><b>Knowledge</b><span class="c">${obFiles || 0} docs uploaded this session · private · deletable</span></div>
     <div class="srow"><b>Starting mode</b><span>${modeLabel}</span></div>
-    <div class="srow"><b>Price per resolution</b><span class="c">${PRICE_SOLO.toFixed(3)} OKB · assisted 40%</span></div>
-    <div class="srow"><b>Escrow tx</b><span class="v">${deployTxHash ? `<a href="${XLAYER.explorerTx(deployTxHash)}" target="_blank" rel="noopener">${deployTxHash.slice(0,10)}… ↗</a>` : 'already registered'}</span></div>
-    <div class="srow"><b>Reputation</b><span>earned from customers only · onchain · portable</span></div>`;
+    <div class="srow"><b>Fees to clerk.io</b><span class="c">none · accuracy only</span></div>
+    <div class="srow"><b>Register tx</b><span class="v">${deployTxHash ? `<a href="${XLAYER.explorerTx(deployTxHash)}" target="_blank" rel="noopener">${deployTxHash.slice(0,10)}… ↗</a>` : 'already registered'}</span></div>
+    <div class="srow"><b>Reputation</b><span>ratings + reopens onchain · portable</span></div>`;
 }
 
 async function enterDashboard() {
@@ -1065,7 +1063,7 @@ async function enterDashboard() {
   if (!ledger) { const ok = await connectWallet(); if (!ok) { toast('Connect your wallet to load live data.', 'gold'); return; } }
   speak(`Hey ${biz.name}. Reading your live data from X Layer…`);
   await loadLive();
-  speak(`You're live. This view reads directly from ClerkLedgerV2 — nothing here is simulated.`);
+  speak(`You're live. This view reads directly from the onchain accuracy ledger — nothing here is simulated.`);
   mind('chain', `connected · <b>${account.slice(0,6)}…${account.slice(-4)}</b> · X Layer`);
 }
 $('enterApp').onclick = enterDashboard;

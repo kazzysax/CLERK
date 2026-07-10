@@ -156,21 +156,24 @@ export async function ensureWalletOnNet(ethereum, netCfg) {
  * Shared ClerkLedgerV2 ABI — the single copy every page and script imports.
  * Superset of what any one page needs; unused entries are harmless to ethers.
  */
+/**
+ * ClerkReputation ABI — accuracy onchain, no OKB fees / escrow.
+ * (trackRecord 4th field = finalized count, not wei paid)
+ */
 export const LEDGER_ABI = [
-  "function merchants(address) view returns (bool registered,uint256 escrow,uint256 pricePerTicket)",
-  "function registerMerchant(uint256 pricePerTicket) payable",
-  "function depositEscrow() payable",
-  "function withdrawEscrow(uint256 amount)",
-  "function setPrice(uint256 pricePerTicket)",
+  "function merchants(address) view returns (bool registered,uint64 registeredAt)",
+  "function registerMerchant()",
   "function reopen(bytes32 ticketHash)",
   "function reopenWindow() view returns (uint64)",
   "function finalize(bytes32 ticketHash)",
-  "function trackRecord() view returns (uint256 solo,uint256 assisted,uint256 reopened,uint256 paidOut,uint256 custScoreCenti,uint256 custRatings,uint256 merchScoreCenti,uint256 merchRatings)",
+  "function trackRecord() view returns (uint256 solo,uint256 assisted,uint256 reopened,uint256 finalized,uint256 custScoreCenti,uint256 custRatings,uint256 merchScoreCenti,uint256 merchRatings)",
   "function soloRateBps() view returns (uint256)",
   "function customerScore() view returns (uint256 centistars, uint256 ratings)",
   "function merchantScore() view returns (uint256 centistars, uint256 ratings)",
-  "function getTicket(bytes32) view returns (tuple(address merchant,uint64 registeredAt,uint64 resolvedAt,uint16 confidenceBps,bool resolvedByClerk,uint8 status,uint8 customerRating,uint8 merchantRating,uint256 lockedPayout))",
+  "function getTicket(bytes32) view returns (tuple(address merchant,uint64 registeredAt,uint64 resolvedAt,uint16 confidenceBps,bool resolvedByClerk,uint8 status,uint8 customerRating,uint8 merchantRating))",
+  "function totalFinalized() view returns (uint256)",
   "event TicketRegistered(bytes32 indexed ticketHash, address indexed merchant)",
-  "event ResolutionFinalized(bytes32 indexed ticketHash, bool resolvedByClerk, uint256 payout)",
+  "event ResolutionFinalized(bytes32 indexed ticketHash, bool resolvedByClerk)",
   "event CustomerRated(bytes32 indexed ticketHash, uint8 rating, bytes32 proofHash)",
+  "event MerchantRegistered(address indexed merchant, uint64 at)",
 ];

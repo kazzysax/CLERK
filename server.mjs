@@ -444,7 +444,34 @@ app.use(express.static(__dirname, {
 }));
 
 // ------------------------------------------------------------------
+// 9. Keep-alive ping loop (Render free tier spins down after idle inbound
+//    traffic). Hitting our own PUBLIC_BASE_URL/health every 30s generates
+//    real HTTP through the edge so the service stays warm while running.
+// ------------------------------------------------------------------
+const KEEP_ALIVE_MS = Math.max(5_000, Number(process.env.KEEP_ALIVE_MS || 30_000));
+async function keepAlivePing() {
+  const base = String(ENV.PUBLIC_BASE_URL || "").replace(/\/$/, "");
+  if (!base || base.includes("localhost")) return; // skip local dev
+  const url = `${base}/health`;
+  try {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), 12_000);
+    const res = await fetch(url, { signal: ctl.signal, headers: { "user-agent": "clerk-keepalive/1" } });
+    clearTimeout(t);
+    log("info", "keep-alive ping", { status: res.status, everyMs: KEEP_ALIVE_MS });
+  } catch (e) {
+    log("warn", "keep-alive ping failed", { err: e.message, url });
+  }
+}
+
+// ------------------------------------------------------------------
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => log("info", `Clerk production service up on :${PORT}`, {
-  contract: ENV.CLERK_LEDGER_ADDRESS, rpc: ENV.XLAYER_RPC, network: process.env.XLAYER_NETWORK || "mainnet",
-}));
+app.listen(PORT, () => {
+  log("info", `Clerk production service up on :${PORT}`, {
+    contract: ENV.CLERK_LEDGER_ADDRESS, rpc: ENV.XLAYER_RPC, network: process.env.XLAYER_NETWORK || "mainnet",
+    keepAliveMs: KEEP_ALIVE_MS,
+  });
+  // First ping shortly after boot, then every 30s (default).
+  setTimeout(() => keepAlivePing(), 5_000);
+  setInterval(() => keepAlivePing(), KEEP_ALIVE_MS);
+});

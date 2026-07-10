@@ -659,7 +659,7 @@
     <div class="contract glass-soft">
       <div class="eyebrow" style="margin-bottom:8px">⛓ ClerkLedgerV2.sol</div>
       <div class="crow"><b>network</b><span id="cNetwork">X Layer</span></div>
-      <div class="crow"><b>chainId</b><span id="cChainId">196</span></div>
+      <div class="crow"><b>chainId</b><span id="cChainId">1952</span></div>
       <div class="crow"><b>contract</b><span class="addr" id="cAddr">—</span></div>
       <div class="crow"><b>price / solo</b><span id="cPrice">—</span></div>
       <div class="crow"><b>assisted</b><span id="cAssist">—</span></div>
@@ -706,7 +706,7 @@
 </script>
 <script type="module">
 import { ethers } from "https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.min.js";
-import { XLAYER as XL, LEDGER_ABI, activeNet } from "./xlayer.config.mjs";
+import { XLAYER as XL, LEDGER_ABI, activeNet, getInjectedProvider, ensureWalletOnNet } from "./xlayer.config.mjs";
 
 // ================== CHAIN CONFIG, imported from the shared module ==================
 const net = activeNet();
@@ -717,6 +717,7 @@ const XLAYER = {
     rpcUrls: [net.rpc, net.rpcFallback].filter(Boolean), blockExplorerUrls: [net.explorer] },
   explorerTx: net.explorerTx,
   explorerAddr: net.explorerAddr,
+  netCfg: net,
 };
 // Set this to your deployed ClerkLedgerV2 address before going live:
 const CONTRACT = window.CLERK_CONTRACT || "0x0000000000000000000000000000000000000000";
@@ -763,17 +764,22 @@ const txLink = h => `<a href="${XLAYER.explorerTx(h)}" target="_blank" rel="noop
 
 // ================== WALLET / CHAIN ==================
 async function connectWallet() {
-  if (!window.ethereum) { toast('No EVM wallet found. Install OKX Wallet or MetaMask.', 'gold'); return false; }
-  provider = new ethers.BrowserProvider(window.ethereum);
-  await provider.send('eth_requestAccounts', []);
-  const net = await provider.getNetwork();
-  if (net.chainId !== BigInt(XLAYER.chainId)) {
-    try { await window.ethereum.request({ method:'wallet_switchEthereumChain', params:[{ chainId: XLAYER.chainIdHex }] }); }
-    catch (e) {
-      if (e.code === 4902) await window.ethereum.request({ method:'wallet_addEthereumChain', params:[XLAYER.params] });
-      else { toast('Please switch your wallet to X Layer.', 'gold'); return false; }
+  const eth = getInjectedProvider();
+  if (!eth) { toast('No EVM wallet found. Install OKX Wallet or MetaMask.', 'gold'); return false; }
+  try {
+    provider = new ethers.BrowserProvider(eth);
+    await provider.send('eth_requestAccounts', []);
+    // OKX: turn OFF Testnet Mode for X Layer Testnet (1952) — wallet classifies it as mainnet.
+    await ensureWalletOnNet(eth, XLAYER.netCfg);
+    provider = new ethers.BrowserProvider(eth);
+    const chain = await provider.getNetwork();
+    if (chain.chainId !== BigInt(XLAYER.chainId)) {
+      toast('Still on the wrong network. Switch to ' + XLAYER.name + ' (chain ' + XLAYER.chainId + ').', 'gold');
+      return false;
     }
-    provider = new ethers.BrowserProvider(window.ethereum);
+  } catch (e) {
+    toast(e.message || String(e), 'gold');
+    return false;
   }
   signer = await provider.getSigner();
   account = await signer.getAddress();
@@ -785,6 +791,7 @@ async function connectWallet() {
   try { reopenWindowSecs = Number(await ledger.reopenWindow()); } catch {}
   $('cAddr') && ($('cAddr').innerHTML = `<a href="${XLAYER.explorerAddr(CONTRACT)}" target="_blank" rel="noopener">${CONTRACT.slice(0,8)}…${CONTRACT.slice(-6)}</a>`);
   $('cWindow') && ($('cWindow').textContent = reopenWindowSecs >= 3600 ? (reopenWindowSecs/3600).toFixed(0)+'h' : reopenWindowSecs+'s');
+  $('cChainId') && ($('cChainId').textContent = String(XLAYER.chainId));
   return true;
 }
 

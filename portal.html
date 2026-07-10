@@ -196,7 +196,7 @@
 </script>
 <script type="module">
   import { ethers } from "https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.min.js";
-  import { XLAYER as XL, LEDGER_ABI, activeNet } from "./xlayer.config.mjs";
+  import { XLAYER as XL, LEDGER_ABI, activeNet, getInjectedProvider, ensureWalletOnNet } from "./xlayer.config.mjs";
 
   // ---- config, imported from the shared module (not duplicated) ----
   const net = activeNet();
@@ -207,6 +207,7 @@
       nativeCurrency: { name: net.nativeToken.name, symbol: net.nativeToken.symbol, decimals: net.nativeToken.decimals },
       rpcUrls: [net.rpc, net.rpcFallback].filter(Boolean), blockExplorerUrls: [net.explorer] },
     explorerTx: net.explorerTx,
+    netCfg: net,
   };
   const CONTRACT = window.CLERK_CONTRACT || "0x0000000000000000000000000000000000000000";
   const ABI = LEDGER_ABI;
@@ -225,16 +226,22 @@
   const txLink = h => `<a href="${XLAYER.explorerTx(h)}" target="_blank" rel="noopener">view tx ↗</a>`;
 
   async function connect() {
-    if (!window.ethereum) { toast("No EVM wallet found. Install OKX Wallet or MetaMask.", "gold"); return; }
-    provider = new ethers.BrowserProvider(window.ethereum);
-    await provider.send("eth_requestAccounts", []);
-    // ensure correct X Layer network (testnet 1952 / mainnet 196)
-    const chain = await provider.getNetwork();
-    if (chain.chainId !== BigInt(XLAYER.chainId)) {
-      try { await window.ethereum.request({ method:"wallet_switchEthereumChain", params:[{chainId:XLAYER.chainIdHex}] }); }
-      catch(e){ if(e.code===4902){ await window.ethereum.request({ method:"wallet_addEthereumChain", params:[XLAYER.params] }); }
-        else { toast("Please switch your wallet to "+XLAYER.name+".","gold"); } }
-      provider = new ethers.BrowserProvider(window.ethereum);
+    const eth = getInjectedProvider();
+    if (!eth) { toast("No EVM wallet found. Install OKX Wallet or MetaMask.", "gold"); return; }
+    try {
+      provider = new ethers.BrowserProvider(eth);
+      await provider.send("eth_requestAccounts", []);
+      // X Layer Testnet (1952). OKX users: Testnet Mode must be OFF (wallet treats this chain as mainnet).
+      await ensureWalletOnNet(eth, XLAYER.netCfg);
+      provider = new ethers.BrowserProvider(eth);
+      const chain = await provider.getNetwork();
+      if (chain.chainId !== BigInt(XLAYER.chainId)) {
+        toast("Still on the wrong network. Switch to " + XLAYER.name + " (chain " + XLAYER.chainId + ").", "gold");
+        return;
+      }
+    } catch (e) {
+      toast(e.message || String(e), "gold");
+      return;
     }
     signer = await provider.getSigner();
     account = await signer.getAddress();
@@ -251,8 +258,8 @@
     }
     try { reopenWindow = await ledger.reopenWindow(); } catch {}
     await refresh();
-    window.ethereum.on?.("accountsChanged", ()=>location.reload());
-    window.ethereum.on?.("chainChanged", ()=>location.reload());
+    eth.on?.("accountsChanged", ()=>location.reload());
+    eth.on?.("chainChanged", ()=>location.reload());
   }
 
   async function refresh() {

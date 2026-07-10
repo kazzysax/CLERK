@@ -84,6 +84,75 @@ export function net(which) {
 }
 
 /**
+ * Pick an injected EIP-1193 provider. When OKX + MetaMask both inject,
+ * prefer MetaMask — OKX "Testnet Mode" blocks X Layer Testnet (chain 1952)
+ * with: "X Layer Testnet is a mainnet. Turn off Testnet Mode".
+ */
+export function getInjectedProvider() {
+  const eth = typeof window !== "undefined" ? window.ethereum : null;
+  if (!eth) return null;
+  if (Array.isArray(eth.providers) && eth.providers.length) {
+    const mm = eth.providers.find(p => p.isMetaMask && !p.isOkxWallet && !p.isOKExWallet);
+    if (mm) return mm;
+    const okx = eth.providers.find(p => p.isOkxWallet || p.isOKExWallet || p.isOkx);
+    if (okx) return okx;
+    return eth.providers[0];
+  }
+  return eth;
+}
+
+/** Human-readable fix for common wallet switch/add failures. */
+export function walletChainErrorHint(err, networkName = "X Layer Testnet") {
+  const msg = String(err?.message || err?.data?.message || err || "");
+  if (/testnet mode/i.test(msg) || /is a mainnet/i.test(msg)) {
+    return (
+      "OKX Wallet Testnet Mode is ON, but " + networkName + " must be used with " +
+      "Testnet Mode OFF. Open OKX Wallet → Settings (⚙) → Preferences → turn " +
+      "OFF Testnet Mode → reconnect. Or use MetaMask on chain 1952."
+    );
+  }
+  if (/user rejected|denied|4001/i.test(msg)) return "Wallet request was rejected.";
+  if (/Unrecognized chain|4902/i.test(msg)) return "Add " + networkName + " to your wallet, then try again.";
+  return msg || ("Please switch your wallet to " + networkName + ".");
+}
+
+/**
+ * Switch (or add) the injected wallet to the given X Layer network config
+ * (`activeNet()` or XLAYER.testnet / .mainnet).
+ */
+export async function ensureWalletOnNet(ethereum, netCfg) {
+  if (!ethereum) throw new Error("No wallet provider");
+  const chainIdHex = netCfg.chainIdHex;
+  const params = {
+    chainId: chainIdHex,
+    chainName: netCfg.name,
+    nativeCurrency: {
+      name: netCfg.nativeToken.name,
+      symbol: netCfg.nativeToken.symbol,
+      decimals: netCfg.nativeToken.decimals,
+    },
+    rpcUrls: [netCfg.rpc, netCfg.rpcFallback].filter(Boolean),
+    blockExplorerUrls: [netCfg.explorer],
+  };
+  try {
+    await ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: chainIdHex }] });
+    return;
+  } catch (e) {
+    const code = e?.code ?? e?.data?.originalError?.code;
+    // 4902 = chain not added; -32603 sometimes used by OKX for missing chain
+    if (code === 4902 || code === -32603 || /unrecognized chain/i.test(String(e?.message))) {
+      try {
+        await ethereum.request({ method: "wallet_addEthereumChain", params: [params] });
+        return;
+      } catch (addErr) {
+        throw new Error(walletChainErrorHint(addErr, netCfg.name));
+      }
+    }
+    throw new Error(walletChainErrorHint(e, netCfg.name));
+  }
+}
+
+/**
  * Shared ClerkLedgerV2 ABI — the single copy every page and script imports.
  * Superset of what any one page needs; unused entries are harmless to ethers.
  */

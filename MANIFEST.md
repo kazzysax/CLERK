@@ -46,7 +46,8 @@ this package contains the current, superseding version of everything.
 | `install.html` | **Merchant install** — provision embed key + copy-paste snippet for any website. | admin token |
 | `public/widget/v1.js` | **Embeddable dangling bubble + chat** for merchant sites. | public key from provision |
 | `widget.mjs` | Widget sessions, standby/live routing, **always-learn** from human resolves. | — |
-| `WIDGET.md` | Integration guide for existing sites. | — |
+| `WIDGET.md` | Technical API reference for the embed. | — |
+| `MERCHANT_GUIDE.md` | **Merchant-facing** step-by-step: put clerk.io on WordPress/Shopify/Webflow/etc. | share this link |
 | `supabase/schema-widget.sql` | Widget sessions, shadow drafts, learning events, queue. | run after core schemas |
 
 ### How the pages connect

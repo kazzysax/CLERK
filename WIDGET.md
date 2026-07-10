@@ -1,4 +1,7 @@
-# clerk.io website embed — merchant integration
+# clerk.io website embed — technical reference
+
+> **Merchants:** start with the plain-language guide → **[MERCHANT_GUIDE.md](./MERCHANT_GUIDE.md)**  
+> This file is the API / developer reference.
 
 For customers who **already have a site** and want clerk.io in their customer-care experience.
 

@@ -1,7 +1,7 @@
 {
-  "name": "clerk",
+  "name": "clerk-io",
   "version": "1.0.0",
-  "description": "Clerk — outcome-paid AI support agent on X Layer (OKX). Contract, backend, and deploy scripts.",
+  "description": "clerk.io — outcome-paid AI support agent on X Layer (OKX). Contract, backend, and deploy scripts.",
   "engines": {
     "node": ">=20"
   },

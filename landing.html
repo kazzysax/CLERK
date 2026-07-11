@@ -298,7 +298,7 @@
 <div class="wrap section" style="padding-top:0">
   <div class="rep-strip glass" id="repStrip">
     <div class="rep-item"><div class="k">Customer rating</div><div class="v c" id="rCust">—</div></div>
-    <div class="rep-item"><div class="k">Merchant rating</div><div class="v v" id="rMerch">—</div></div>
+    <div class="rep-item"><div class="k">Reopened</div><div class="v v" id="rReopen">—</div></div>
     <div class="rep-item"><div class="k">Resolved solo</div><div class="v" id="rSolo">—</div></div>
     <div class="rep-item"><div class="k">Finalized (onchain)</div><div class="v c" id="rPaid">—</div></div>
   </div>
@@ -333,7 +333,7 @@
       const ledger = new ethers.Contract(CONTRACT, ABI, provider);
       const tr = await ledger.trackRecord();
       document.getElementById('rCust').textContent = (Number(tr[4])/100).toFixed(2) + '★';
-      document.getElementById('rMerch').textContent = (Number(tr[6])/100).toFixed(2) + '★';
+      document.getElementById('rReopen').textContent = Number(tr[2]).toLocaleString();
       document.getElementById('rSolo').textContent = Number(tr[0]).toLocaleString();
       document.getElementById('rPaid').textContent = Number(tr[3]).toLocaleString();
     } catch {}

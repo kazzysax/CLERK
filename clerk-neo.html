@@ -134,110 +134,54 @@
     * { transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
   }
 
-  /* ============ ONBOARDING ============ */
-  #onboarding {
-    position: relative; z-index: 2; min-height: 100vh;
-    display: grid; place-items: center; padding: 40px 20px;
-  }
-  .ob-shell { width: 100%; max-width: 660px; }
-  .ob-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 26px; }
-  .ob-brand { display: flex; align-items: center; gap: 14px; }
-  .ob-brand .name { font-family: var(--display); font-size: 17px; font-weight: 600; letter-spacing: .02em; }
-  .ob-brand .tag { font-family: var(--mono); font-size: 10px; color: var(--muted); }
-  .ob-skip { font-family: var(--mono); font-size: 11px; color: var(--muted-2); background: none; border: none; cursor: pointer; }
-  .ob-skip:hover { color: var(--cyan); }
-
-  .ob-dots { display: flex; gap: 8px; margin-bottom: 22px; }
-  .ob-dots .d { height: 3px; flex: 1; border-radius: 2px; background: var(--line-2); transition: all .4s; }
-  .ob-dots .d.on { background: linear-gradient(90deg, var(--cyan), var(--violet)); box-shadow: var(--glow-cyan); }
-
-  .ob-card { padding: 36px; }
-  .ob-step { display: none; animation: obIn .45s cubic-bezier(.2,.8,.2,1); }
-  .ob-step.on { display: block; }
+  /* ============ ONBOARDING — split connect screen ============ */
   @keyframes obIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  #onboarding { position: relative; z-index: 2; min-height: 100vh; }
+  .ob-split { display: grid; grid-template-columns: 1fr 1fr; min-height: 100vh; }
 
-  .ob-h { font-family: var(--display); font-weight: 600; font-size: clamp(24px, 4.5vw, 34px); line-height: 1.15; letter-spacing: -0.01em; margin: 18px 0 10px; }
+  .ob-left { display: flex; flex-direction: column; justify-content: center; padding: 56px clamp(28px, 6vw, 88px); gap: 44px; }
+  .ob-brand-link { display: flex; align-items: center; gap: 14px; text-decoration: none; color: inherit; }
+  .ob-brand-link .name { font-family: var(--display); font-size: 17px; font-weight: 600; letter-spacing: .02em; }
+  .ob-brand-link .tag { font-family: var(--mono); font-size: 10px; color: var(--muted); }
+
+  .ob-auth { max-width: 420px; animation: obIn .5s cubic-bezier(.2,.8,.2,1); }
+  .ob-h { font-family: var(--display); font-weight: 600; font-size: clamp(28px, 4vw, 40px); line-height: 1.12; letter-spacing: -0.01em; margin: 14px 0 12px; }
   .ob-h em { font-style: normal; background: linear-gradient(100deg, var(--cyan), var(--violet)); -webkit-background-clip: text; background-clip: text; color: transparent; }
-  .ob-p { color: var(--muted); font-size: 14px; max-width: 46ch; }
+  .ob-p { color: var(--muted); font-size: 14px; max-width: 42ch; }
 
-  .ob-fields { display: flex; flex-direction: column; gap: 14px; margin-top: 24px; }
-  .field label { display: block; font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-bottom: 7px; }
-  .field input, .field select {
-    width: 100%; font-family: var(--body); font-size: 14px; color: var(--paper);
-    background: var(--void-2); border: 1px solid var(--line-2); border-radius: 11px;
-    padding: 12px 14px; outline: none; transition: all .18s;
+  .auth-stack { display: flex; flex-direction: column; gap: 14px; margin-top: 30px; }
+  .auth-btn { width: 100%; justify-content: center; padding: 13px 18px; font-size: 13.5px; }
+  .auth-or { display: flex; align-items: center; gap: 12px; color: var(--muted-2); font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; }
+  .auth-or::before, .auth-or::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+
+  .ob-status { margin-top: 20px; min-height: 20px; font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+  .ob-status.ok { color: var(--cyan); }
+  .ob-status.err { color: var(--gold); }
+  .ob-fine { margin-top: 24px; font-size: 11px; color: var(--muted-2); line-height: 1.6; max-width: 40ch; }
+
+  .ob-right { position: relative; border-left: 1px solid var(--line); background: rgba(9,11,24,.5); display: flex; align-items: center; justify-content: center; padding: 40px; overflow: hidden; }
+  .demo-panel { width: 100%; max-width: 420px; }
+  .demo-head { display: flex; flex-direction: column; gap: 5px; margin-bottom: 18px; }
+  .demo-label { font-family: var(--display); font-size: 14px; font-weight: 500; color: var(--paper); }
+  .demo-stage { display: flex; flex-direction: column; gap: 12px; min-height: 380px; }
+  .demo-line { animation: obIn .35s cubic-bezier(.2,.8,.2,1); }
+  .demo-who { font-family: var(--mono); font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted-2); margin-bottom: 5px; display: flex; align-items: center; gap: 6px; }
+  .demo-who .dot { width: 5px; height: 5px; border-radius: 50%; }
+  .demo-who.customer .dot { background: var(--muted); }
+  .demo-who.clerk .dot { background: var(--cyan); box-shadow: var(--glow-cyan); }
+  .demo-who.human .dot { background: var(--gold); }
+  .demo-think { font-family: var(--mono); font-size: 10.5px; color: var(--muted-2); padding: 2px 0; }
+  .demo-conf { margin-top: 8px; display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 10.5px; color: var(--muted); }
+  .demo-conf .bar { flex: 1; height: 4px; background: var(--void-2); border-radius: 2px; overflow: hidden; }
+  .demo-conf .bar span { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, var(--gold), var(--cyan)); border-radius: 2px; transition: width .6s cubic-bezier(.4,0,.2,1); }
+  .human-msg { background: var(--gold-dim); border: 1px solid rgba(255,176,32,.3); border-radius: 12px; padding: 13px 14px; font-size: 12.5px; line-height: 1.6; }
+  .demo-learn { font-family: var(--mono); font-size: 10.5px; color: var(--violet); display: flex; align-items: center; gap: 7px; padding: 9px 12px; background: var(--violet-dim); border: 1px solid rgba(139,92,246,.3); border-radius: 10px; }
+
+  @media (max-width: 900px) {
+    .ob-split { grid-template-columns: 1fr; }
+    .ob-left { padding: 40px 24px; }
+    .ob-right { border-left: none; border-top: 1px solid var(--line); min-height: 460px; }
   }
-  .field input:focus, .field select:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(34,243,238,.12); }
-
-  .ob-nav { display: flex; justify-content: space-between; align-items: center; margin-top: 30px; }
-  .ob-back { font-family: var(--mono); font-size: 11px; color: var(--muted-2); background: none; border: none; cursor: pointer; }
-  .ob-back:hover { color: var(--paper); }
-
-  .dropzone {
-    margin-top: 22px; border: 1.5px dashed var(--line-2); border-radius: 14px;
-    padding: 30px 20px; text-align: center; cursor: pointer; transition: all .2s;
-  }
-  .dropzone:hover { border-color: var(--cyan); background: var(--cyan-dim); }
-  .dropzone .dz-icon { font-size: 24px; }
-  .dropzone p { color: var(--muted); font-size: 12.5px; margin-top: 8px; }
-  .dz-files { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
-  .dz-file {
-    display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    background: var(--void-2); border: 1px solid var(--line); border-radius: 10px;
-    padding: 10px 13px; font-size: 12.5px; animation: obIn .3s ease;
-  }
-  .dz-file .fmeta { font-family: var(--mono); font-size: 10px; color: var(--cyan); }
-  .dz-file .fname { display: flex; align-items: center; gap: 8px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-
-  .mode-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 24px; }
-  .mode-card {
-    background: var(--void-2); border: 1px solid var(--line-2); border-radius: 14px;
-    padding: 18px 15px; cursor: pointer; transition: all .18s; position: relative;
-  }
-  .mode-card:hover { border-color: var(--violet); transform: translateY(-2px); }
-  .mode-card.sel { border-color: var(--cyan); box-shadow: var(--glow-cyan); background: var(--cyan-dim); }
-  .mode-card .mi { font-size: 20px; }
-  .mode-card h4 { font-family: var(--display); font-size: 13px; font-weight: 500; margin: 10px 0 6px; }
-  .mode-card p { font-size: 11px; color: var(--muted); line-height: 1.5; }
-  .mode-card .rec { position: absolute; top: 10px; right: 10px; font-family: var(--mono); font-size: 8.5px; letter-spacing: .08em; color: var(--void); background: var(--cyan); border-radius: 5px; padding: 2px 6px; font-weight: 700; }
-
-  .escrow-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 24px; }
-  .swap-box { margin-top: 18px; border: 1px solid var(--line-2); border-radius: 13px; overflow: hidden; background: var(--void-2); }
-  .swap-head { display: flex; align-items: center; justify-content: space-between; padding: 13px 15px; cursor: pointer; font-size: 12.5px; color: var(--violet); font-weight: 600; }
-  .swap-head:hover { background: rgba(139,92,246,.08); }
-  .swap-caret { transition: transform .2s; }
-  .swap-box.open .swap-caret { transform: rotate(180deg); }
-  .swap-body { display: none; padding: 0 15px 15px; }
-  .swap-box.open .swap-body { display: block; animation: obIn .3s ease; }
-  .swap-note { font-size: 11px; color: var(--muted); line-height: 1.55; margin-bottom: 12px; }
-  .swap-row { display: flex; gap: 8px; align-items: center; }
-  .swap-row select, .swap-row input { background: var(--void); border: 1px solid var(--line-2); border-radius: 9px; padding: 9px 11px; color: var(--paper); font-family: var(--mono); font-size: 12px; outline: none; }
-  .swap-row select { flex: 0 0 90px; } .swap-row input { flex: 1; min-width: 0; }
-  .swap-row select:focus, .swap-row input:focus { border-color: var(--violet); }
-  .swap-arrow { font-family: var(--mono); font-size: 11px; color: var(--muted); white-space: nowrap; }
-  .swap-quote { margin-top: 12px; font-family: var(--mono); font-size: 11px; min-height: 16px; }
-  .swap-quote .q-ok { color: var(--cyan); }
-  .swap-quote .q-line { color: var(--muted); padding: 2px 0; }
-  .swap-quote .q-err { color: var(--gold); }
-  .price-readout { font-family: var(--display); font-size: 26px; font-weight: 600; color: var(--cyan); text-shadow: var(--glow-cyan); }
-  .price-readout small { font-size: 12px; color: var(--muted); font-family: var(--body); font-weight: 400; }
-  input[type=range] { width: 100%; accent-color: var(--cyan); margin-top: 10px; }
-  .wallet-chip {
-    display: flex; align-items: center; gap: 10px; margin-top: 8px;
-    font-family: var(--mono); font-size: 11px; color: var(--violet);
-    background: var(--violet-dim); border: 1px solid rgba(139,92,246,.35);
-    padding: 10px 13px; border-radius: 10px;
-  }
-  .deploy-seq { margin-top: 20px; font-family: var(--mono); font-size: 11px; display: flex; flex-direction: column; gap: 7px; min-height: 90px; }
-  .deploy-seq .ln { color: var(--muted); animation: obIn .3s ease; }
-  .deploy-seq .ln b { color: var(--cyan); font-weight: 500; }
-  .deploy-seq .ln .ok { color: var(--cyan); }
-
-  .summary-rows { margin-top: 22px; display: flex; flex-direction: column; gap: 0; }
-  .srow { display: flex; justify-content: space-between; padding: 11px 2px; border-bottom: 1px solid var(--line); font-size: 12.5px; }
-  .srow b { color: var(--muted); font-weight: 500; }
-  .srow span { font-family: var(--mono); font-size: 11.5px; }
-  .srow .c { color: var(--cyan); } .srow .v { color: var(--violet); }
 
   /* ============ APP ============ */
   #app { display: none; position: relative; z-index: 1; }
@@ -385,6 +329,55 @@
   .lchip.reopened { background: var(--magenta-dim); color: var(--magenta); }
   .ledger-empty { font-family: var(--mono); font-size: 10.5px; color: var(--muted-2); padding: 14px 0; }
 
+  /* tabs */
+  .tabbar { display: flex; gap: 6px; }
+  .tab { font-family: var(--display); font-size: 13px; font-weight: 500; color: var(--muted); background: none; border: none; cursor: pointer; padding: 7px 4px; border-bottom: 2px solid transparent; }
+  .tab:hover { color: var(--paper); }
+  .tab.on { color: var(--paper); border-bottom-color: var(--cyan); }
+
+  /* train view */
+  .field { margin-top: 14px; }
+  .field label { display: block; font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-bottom: 7px; }
+  .field input, .field textarea, .field select {
+    width: 100%; font-family: var(--body); font-size: 13.5px; color: var(--paper);
+    background: var(--void-2); border: 1px solid var(--line-2); border-radius: 11px;
+    padding: 11px 13px; outline: none; transition: all .18s; resize: vertical;
+  }
+  .field input:focus, .field textarea:focus, .field select:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(34,243,238,.12); }
+
+  .train-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; padding: 20px 26px; align-items: start; }
+  .train-card { padding: 22px; }
+  .train-note { color: var(--muted); font-size: 12px; margin-top: 6px; line-height: 1.55; }
+  .train-row { display: flex; gap: 9px; align-items: center; margin-top: 14px; flex-wrap: wrap; }
+  .train-row input { flex: 1; min-width: 160px; font-family: var(--body); font-size: 13.5px; color: var(--paper); background: var(--void-2); border: 1px solid var(--line-2); border-radius: 11px; padding: 11px 13px; outline: none; }
+  .train-row input:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(34,243,238,.12); }
+  .train-status { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 12px; min-height: 16px; }
+  .train-status.ok { color: var(--cyan); } .train-status.err { color: var(--gold); }
+
+  .doc-list { margin-top: 18px; display: flex; flex-direction: column; gap: 8px; max-height: 220px; overflow-y: auto; }
+  .doc-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--void-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 13px; font-size: 12px; }
+  .doc-item .dn { display: flex; align-items: center; gap: 8px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .doc-item .dm { font-family: var(--mono); font-size: 10px; color: var(--cyan); white-space: nowrap; }
+  .doc-empty { font-family: var(--mono); font-size: 10.5px; color: var(--muted-2); padding: 10px 2px; }
+
+  .tutor-answer { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 16px; animation: obIn .3s ease; }
+  .tutor-verdict { display: flex; gap: 9px; margin-top: 14px; }
+  .tutor-fix { margin-top: 12px; display: none; }
+  .tutor-fix.on { display: block; animation: obIn .3s ease; }
+  .tutor-graded { font-family: var(--mono); font-size: 11px; color: var(--cyan); margin-top: 12px; display: flex; align-items: center; gap: 7px; }
+  .tutor-hist-head { font-family: var(--mono); font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 22px 0 10px; padding-top: 16px; border-top: 1px solid var(--line); }
+  .tutor-hist { display: flex; flex-direction: column; gap: 8px; max-height: 260px; overflow-y: auto; }
+  .tutor-item { background: var(--void-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 13px; font-size: 11.5px; }
+  .tutor-item .tq { color: var(--paper); font-weight: 500; }
+  .tutor-item .ta { color: var(--muted); margin-top: 4px; line-height: 1.5; }
+  .tutor-item .tv { font-family: var(--mono); font-size: 9.5px; margin-top: 6px; display: inline-block; padding: 2px 7px; border-radius: 6px; }
+  .tutor-item .tv.good { background: var(--cyan-dim); color: var(--cyan); }
+  .tutor-item .tv.corrected { background: var(--violet-dim); color: var(--violet); }
+  .tutor-item .tv.pending { background: var(--gold-dim); color: var(--gold); }
+  .hist-empty { font-family: var(--mono); font-size: 10.5px; color: var(--muted-2); padding: 10px 2px; }
+
+  @media (max-width: 900px) { .train-grid { grid-template-columns: 1fr; } }
+
   /* drawer */
   .scrim { position: fixed; inset: 0; background: rgba(3,4,10,.7); backdrop-filter: blur(4px); opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 40; }
   .scrim.open { opacity: 1; pointer-events: auto; }
@@ -450,169 +443,58 @@
     .rail { position: static; height: auto; }
     .board { grid-template-columns: 1fr 1fr; }
     .toast-wrap { left: 20px; }
-    .mode-cards { grid-template-columns: 1fr; }
-    .escrow-grid { grid-template-columns: 1fr; }
   }
   @media (max-width: 640px) {
     .board { grid-template-columns: 1fr; }
     .lrow { grid-template-columns: 80px 1fr 78px; }
     .lrow .conf, .lrow .rate, .lrow .lchip { display: none; }
-    .ob-card { padding: 24px 20px; }
   }
 </style>
 
 <!-- ==================== ONBOARDING ==================== -->
 <div id="onboarding">
-  <div class="ob-shell">
-    <div class="ob-top">
-      <div class="ob-brand">
-        <a href="landing.html" style="text-decoration:none;display:flex;align-items:center;gap:14px;color:inherit">
+  <div class="ob-split">
+    <div class="ob-left">
+      <a href="landing.html" class="ob-brand-link">
         <div class="core-wrap" style="--core-size:40px" id="obCore"><div class="core-halo"></div><div class="core"></div></div>
         <div>
           <div class="name">clerk.io</div>
           <div class="tag">AI support agent · X Layer</div>
         </div>
-        </a>
+      </a>
+
+      <div class="ob-auth">
+        <div class="eyebrow">Get started</div>
+        <div class="ob-h">Live in <em>seconds</em></div>
+        <p class="ob-p">Connect a wallet to register free and start writing accuracy onchain — or sign in with Google to look around first.</p>
+
+        <div class="auth-stack">
+          <button class="btn primary auth-btn" id="connectWalletBtn">⬢ Connect Wallet</button>
+          <div class="auth-or"><span>or</span></div>
+          <button class="btn ghost auth-btn" id="googleBtn">
+            <svg width="16" height="16" viewBox="0 0 18 18" aria-hidden="true">
+              <path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.91c1.7-1.57 2.69-3.88 2.69-6.62z"/>
+              <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.91-2.26c-.81.54-1.84.86-3.05.86-2.35 0-4.34-1.58-5.05-3.71H.96v2.33A9 9 0 0 0 9 18z"/>
+              <path fill="#FBBC05" d="M3.95 10.71A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.17.28-1.71V4.96H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.04l2.99-2.33z"/>
+              <path fill="#EA4335" d="M9 3.58c1.32 0 2.51.46 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .96 4.96l2.99 2.33C4.66 5.16 6.65 3.58 9 3.58z"/>
+            </svg>
+            Continue with Google
+          </button>
+        </div>
+
+        <div class="ob-status" id="obStatus"></div>
+        <p class="ob-fine">No OKB fee to clerk.io, ever. If your wallet has no gas, clerk.io sends a free one-time drip automatically.</p>
       </div>
-      <button class="ob-skip" id="obSkip">Skip setup →</button>
     </div>
 
-    <div class="ob-dots" id="obDots"></div>
-
-    <div class="ob-card glass">
-
-      <!-- STEP 1 -->
-      <div class="ob-step on" data-step="1">
-        <div class="eyebrow">Step 1 of 5</div>
-        <div class="ob-h">Hi, I'm <em>clerk.io</em> 👋</div>
-        <p class="ob-p">Nice to meet you. Let's get your support desk set up — it only takes a minute.</p>
-        <div class="ob-fields">
-          <div class="field">
-            <label>Business name</label>
-            <input id="obBizName" placeholder="e.g. Northwind Goods" maxlength="40" />
-          </div>
-          <div class="field">
-            <label>Where your tickets live</label>
-            <select id="obSystem">
-              <option value="demo">Demo queue</option>
-              <option value="zendesk">Zendesk</option>
-              <option value="intercom">Intercom</option>
-              <option value="freshdesk">Freshdesk</option>
-            </select>
-          </div>
+    <div class="ob-right">
+      <div class="demo-panel">
+        <div class="demo-head">
+          <span class="eyebrow">Live example</span>
+          <span class="demo-label">How Clerk learns from a real interaction</span>
         </div>
-        <div class="ob-nav">
-          <span></span>
-          <button class="btn primary" data-next>Continue</button>
-        </div>
+        <div class="demo-stage" id="demoStage"></div>
       </div>
-
-      <!-- STEP 2 -->
-      <div class="ob-step" data-step="2">
-        <div class="eyebrow">Step 2 of 5</div>
-        <div class="ob-h">Teach me a little</div>
-        <p class="ob-p">Share your FAQs or docs and I'll only ever answer from what you give me. Private, always.</p>
-        <div class="dropzone" id="dropzone">
-          <div class="dz-icon">⬡</div>
-          <p><b>Drop files or click to add</b><br>or just try sample docs below</p>
-        </div>
-        <input type="file" id="fileInput" multiple hidden />
-        <div class="dz-files" id="dzFiles"></div>
-        <div class="ob-nav">
-          <button class="ob-back" data-back>← Back</button>
-          <div style="display:flex;gap:9px">
-            <button class="btn ghost" id="addSamples">Use sample docs</button>
-            <button class="btn primary" data-next id="obNext2" disabled>Continue</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- STEP 3 -->
-      <div class="ob-step" data-step="3">
-        <div class="eyebrow">Step 3 of 5</div>
-        <div class="ob-h">How should I start?</div>
-        <p class="ob-p">No wrong answer — most people pick the first one.</p>
-        <div class="mode-cards" id="modeCards">
-          <div class="mode-card" data-mode="shadow">
-            <span class="rec">RECOMMENDED</span>
-            <div class="mi">◎</div>
-            <h4>Shadow mode</h4>
-            <p>I watch your team work and learn your style first.</p>
-          </div>
-          <div class="mode-card" data-mode="sandbox">
-            <div class="mi">▣</div>
-            <h4>Sandbox trial</h4>
-            <p>Quiz me privately — nothing reaches a customer yet.</p>
-          </div>
-          <div class="mode-card" data-mode="live">
-            <div class="mi">⚡</div>
-            <h4>Go live now</h4>
-            <p>I start resolving tickets right away.</p>
-          </div>
-        </div>
-        <div class="ob-nav">
-          <button class="ob-back" data-back>← Back</button>
-          <button class="btn primary" data-next id="obNext3" disabled>Continue</button>
-        </div>
-      </div>
-
-      <!-- STEP 4 -->
-      <div class="ob-step" data-step="4">
-        <div class="eyebrow">Step 4 of 5</div>
-        <div class="ob-h">Go onchain — free</div>
-        <p class="ob-p">No OKB fee to clerk.io. Register your wallet so accuracy (ratings, reopens, solo vs human) can be written on X Layer. Tiny network gas only.</p>
-        <div class="escrow-grid">
-          <div class="field">
-            <label>What gets stored onchain</label>
-            <div class="price-readout" style="font-size:15px;line-height:1.4">Ticket hashes · confidence · ratings · reopens<br><small style="color:var(--muted)">Never customer PII · never a pay-per-ticket charge</small></div>
-          </div>
-          <div class="field">
-            <label>Your wallet</label>
-            <div class="wallet-chip">⬢ <span id="walletAddr">connect wallet →</span></div>
-            <input id="depositInput" value="0" type="hidden" />
-            <input type="range" id="priceRange" min="10" max="200" value="50" style="display:none" />
-            <span id="priceVal" style="display:none">0</span>
-          </div>
-        </div>
-        <div class="swap-box" id="swapBox" style="display:none">
-          <div class="swap-head" id="swapToggle">
-            <span>⇄ Need OKB gas? Swap for it here</span>
-            <span class="swap-caret" id="swapCaret">▾</span>
-          </div>
-          <div class="swap-body" id="swapBody">
-            <p class="swap-note">Optional — only for network gas, not Clerk fees.</p>
-            <div class="swap-row">
-              <select id="swapFrom">
-                <option value="USDT">USDT</option>
-                <option value="USDC">USDC</option>
-                <option value="WOKB">WOKB</option>
-              </select>
-              <input id="swapAmount" placeholder="Amount" value="50" />
-              <span class="swap-arrow">→ OKB</span>
-            </div>
-            <button class="btn violet" id="swapQuoteBtn" style="width:100%;justify-content:center;margin-top:10px">Get quote</button>
-            <div class="swap-quote" id="swapQuote"></div>
-          </div>
-        </div>
-        <div class="deploy-seq" id="deploySeq"></div>
-        <div class="ob-nav">
-          <button class="ob-back" data-back>← Back</button>
-          <button class="btn violet" id="deployBtn">⛓ Fund &amp; go</button>
-          <button class="btn primary" data-next id="obNext4" disabled style="display:none">Continue</button>
-        </div>
-      </div>
-
-      <!-- STEP 5 -->
-      <div class="ob-step" data-step="5">
-        <div class="eyebrow">Step 5 of 5</div>
-        <div class="ob-h">All set 🎉</div>
-        <div class="summary-rows" id="summaryRows"></div>
-        <div class="ob-nav">
-          <button class="ob-back" data-back>← Back</button>
-          <button class="btn primary" id="enterApp">Enter the dashboard →</button>
-        </div>
-      </div>
-
     </div>
   </div>
 </div>
@@ -625,7 +507,7 @@
       <div class="core-wrap" style="--core-size:46px" id="appCore"><div class="core-halo"></div><div class="core"></div></div>
       <div>
         <div class="bn">clerk.io</div>
-        <div class="bs"><span id="bizLabel">Northwind Goods</span> · on <b>X Layer</b></div>
+        <div class="bs"><span id="bizLabel">Your Business</span> · on <b>X Layer</b></div>
       </div>
     </div>
 
@@ -638,7 +520,6 @@
       <div class="eyebrow" style="display:flex;align-items:center;gap:7px"><span style="width:6px;height:6px;border-radius:50%;background:var(--cyan);box-shadow:var(--glow-cyan)"></span> Onchain reputation</div>
       <div class="scores">
         <div class="score cust"><div class="sl">Customer</div><div class="sv" id="custScore">3.50</div><div class="sn" id="custN">0 ratings</div></div>
-        <div class="score merch"><div class="sl">Merchant</div><div class="sv" id="merchScore">3.50</div><div class="sn" id="merchN">0 ratings</div></div>
       </div>
     </div>
 
@@ -670,29 +551,64 @@
 
   <div class="main">
     <div class="topbar">
-      <div>
-        <h2>Live ticket queue</h2>
-        <p id="ctxSub">10 tickets seeded · payouts settle through ClerkLedger on X Layer</p>
+      <div class="tabbar">
+        <button class="tab on" id="tabQueue" data-view="queue">Live queue</button>
+        <button class="tab" id="tabTrain" data-view="train">Train Clerk</button>
       </div>
-      <div class="controls">
+      <div class="controls" id="queueControls">
         <span class="speed" id="chainStatus">reading chain…</span>
         <button class="btn primary" id="runBtn">↻ Refresh</button>
       </div>
     </div>
 
-    <div class="board">
-      <div class="col new"><div class="col-head"><span class="t"><span class="sw"></span>Registered</span><span class="count" id="cNew">0</span></div><div class="col-body" id="colNew"></div></div>
-      <div class="col prog"><div class="col-head"><span class="t"><span class="sw"></span>Awaiting Clerk</span><span class="count" id="cProg">0</span></div><div class="col-body" id="colProg"></div></div>
-      <div class="col esc"><div class="col-head"><span class="t"><span class="sw"></span>Reopened</span><span class="count" id="cEsc">0</span></div><div class="col-body" id="colEsc"></div></div>
-      <div class="col done"><div class="col-head"><span class="t"><span class="sw"></span>Pending / Finalized</span><span class="count" id="cDone">0</span></div><div class="col-body" id="colDone"></div></div>
+    <div id="queueView">
+      <div class="board">
+        <div class="col new"><div class="col-head"><span class="t"><span class="sw"></span>Registered</span><span class="count" id="cNew">0</span></div><div class="col-body" id="colNew"></div></div>
+        <div class="col prog"><div class="col-head"><span class="t"><span class="sw"></span>Awaiting Clerk</span><span class="count" id="cProg">0</span></div><div class="col-body" id="colProg"></div></div>
+        <div class="col esc"><div class="col-head"><span class="t"><span class="sw"></span>Reopened</span><span class="count" id="cEsc">0</span></div><div class="col-body" id="colEsc"></div></div>
+        <div class="col done"><div class="col-head"><span class="t"><span class="sw"></span>Pending / Finalized</span><span class="count" id="cDone">0</span></div><div class="col-body" id="colDone"></div></div>
+      </div>
+
+      <div class="ledger-wrap">
+        <div class="ledger-head">
+          <div class="t">ClerkLedger · onchain record <span class="chip">X Layer</span></div>
+          <div class="hint">lifecycle: <b>lock → window → finalize</b> · reopen voids payout</div>
+        </div>
+        <div class="ledger" id="ledger"><div class="ledger-empty">No records yet — run Clerk. Each resolution locks escrow, survives a reopen window, then finalizes.</div></div>
+      </div>
     </div>
 
-    <div class="ledger-wrap">
-      <div class="ledger-head">
-        <div class="t">ClerkLedger · onchain record <span class="chip">X Layer</span></div>
-        <div class="hint">lifecycle: <b>lock → window → finalize</b> · reopen voids payout</div>
+    <div id="trainView" style="display:none">
+      <div class="train-grid">
+        <div class="glass card train-card">
+          <div class="ct">Teach Clerk your FAQs <span class="chip">private · never shown to customers</span></div>
+          <p class="train-note">Paste your policy or FAQ text, or upload a .txt/.md/.csv file. Clerk only ever answers from what you give it here.</p>
+          <div class="field"><label>Title</label><input id="docTitle" placeholder="e.g. Shipping &amp; returns policy" maxlength="200" /></div>
+          <div class="field">
+            <label>Content</label>
+            <textarea id="docContent" rows="7" placeholder="Paste FAQ / policy text here…"></textarea>
+          </div>
+          <div class="train-row">
+            <input type="file" id="docFile" accept=".txt,.md,.csv" hidden />
+            <button class="btn ghost" id="docFileBtn">⬡ Load a .txt/.md/.csv file</button>
+            <button class="btn primary" id="docUploadBtn">Add to knowledge base</button>
+          </div>
+          <div class="train-status" id="docStatus"></div>
+          <div class="doc-list" id="docList"></div>
+        </div>
+
+        <div class="glass card train-card">
+          <div class="ct">Tutor Clerk <span class="chip">rehearsal · nothing sent to a customer</span></div>
+          <p class="train-note">Ask a question a customer might send. See Clerk's real draft and confidence, then tell it whether that's good — or how to do better.</p>
+          <div class="train-row">
+            <input id="tutorQ" placeholder="e.g. Do you ship to Canada?" />
+            <button class="btn primary" id="tutorAskBtn">Ask Clerk</button>
+          </div>
+          <div id="tutorAnswer"></div>
+          <div class="tutor-hist-head">Recent tutoring turns</div>
+          <div class="tutor-hist" id="tutorHist"></div>
+        </div>
       </div>
-      <div class="ledger" id="ledger"><div class="ledger-empty">No records yet — run Clerk. Each resolution locks escrow, survives a reopen window, then finalizes.</div></div>
     </div>
   </div>
 </div>
@@ -704,9 +620,15 @@
   // Live deploy bootstrap — flip CLERK_NETWORK to "mainnet" and update address for prod.
   window.CLERK_NETWORK = "testnet";
   window.CLERK_CONTRACT = "0x6020b4475326480da78b3D166C5476639e450837";
+  // Fill in from Supabase Dashboard → Settings → API to enable "Continue with Google".
+  // The anon key is safe to expose client-side — it only grants what RLS policies allow.
+  // Google sign-in also needs the Google provider enabled under Authentication → Providers.
+  window.SUPABASE_URL = "";
+  window.SUPABASE_ANON_KEY = "";
 </script>
 <script type="module">
 import { ethers } from "https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.min.js";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { XLAYER as XL, LEDGER_ABI, activeNet, getInjectedProvider, ensureWalletOnNet } from "./xlayer.config.mjs";
 
 // ================== CHAIN CONFIG, imported from the shared module ==================
@@ -726,15 +648,12 @@ const CHAIN_STATUS = ["None","REGISTERED","PENDING","FINALIZED","REOPENED"];
 let provider, signer, account, ledger, reopenWindowSecs = 259200;
 
 // ================== CONTRACT-MIRRORED CONSTANTS ==================
-let PRICE_SOLO = 0.05;                 // set during onboarding
-const ASSISTED_BPS = 4000;
-let PRICE_ASSIST = PRICE_SOLO * ASSISTED_BPS / 10000;
 const REOPEN_WINDOW = 10;
 const PRIOR = 3.5, WEIGHT = 20;
 const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // ================== STATE ==================
-let biz = { name: 'Your Business', system: 'demo', mode: 'live', deposit: 1.0, priceOKB: 0.05 };
+let biz = { name: 'Your Business' };
 const $ = id => document.getElementById(id);
 function hash() { const h='0123456789abcdef'; let s='0x'; for(let i=0;i<8;i++) s+=h[Math.floor(Math.random()*16)]; return s+'…'; }
 const okb = wei => Number(ethers.formatEther(wei));
@@ -823,7 +742,6 @@ async function loadLive() {
   const tr = await ledger.trackRecord();
 
   $('custScore').textContent = centi(tr[4]); $('custN').textContent = Number(tr[5]) + ' ratings';
-  $('merchScore').textContent = centi(tr[6]); $('merchN').textContent = Number(tr[7]) + ' ratings';
   $('soloN').textContent = Number(tr[0]);
   $('assistN').textContent = Number(tr[1]);
   $('reopN').textContent = Number(tr[2]);
@@ -919,157 +837,308 @@ document.addEventListener('click', e => {
   if (card && !e.target.closest('[data-reopen]')) window.open(XLAYER.explorerAddr(CONTRACT), '_blank');
 });
 
-// ================== ONBOARDING ==================
-const OB_STEPS = 5;
-let obStep = 1, obFiles = 0, obMode = null, obDeployed = false;
-function obDots() { $('obDots').innerHTML = Array.from({length: OB_STEPS}, (_,i)=>`<div class="d ${i < obStep ? 'on':''}"></div>`).join(''); }
-function obGo(n) {
-  obStep = Math.max(1, Math.min(OB_STEPS, n));
-  document.querySelectorAll('.ob-step').forEach(s => s.classList.toggle('on', +s.dataset.step === obStep));
-  obDots();
-  if (obStep === 5) buildSummary();
+// ================== TRAIN CLERK (dashboard tab) ==================
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function switchTab(view) {
+  $('tabQueue').classList.toggle('on', view === 'queue');
+  $('tabTrain').classList.toggle('on', view === 'train');
+  $('queueView').style.display = view === 'queue' ? '' : 'none';
+  $('trainView').style.display = view === 'train' ? '' : 'none';
+  $('queueControls').style.display = view === 'queue' ? '' : 'none';
+  if (view === 'train') { refreshDocs(); refreshHistory(); }
 }
-obDots();
-document.querySelectorAll('[data-next]').forEach(b => b.onclick = () => {
-  if (obStep === 1) { biz.name = $('obBizName').value.trim() || 'Northwind Goods'; biz.system = $('obSystem').value; }
-  obGo(obStep + 1);
-});
-document.querySelectorAll('[data-back]').forEach(b => b.onclick = () => obGo(obStep - 1));
+$('tabQueue').onclick = () => switchTab('queue');
+$('tabTrain').onclick = () => switchTab('train');
 
-// step 2: knowledge upload
-const SAMPLES = [
-  ['faq-shipping-returns.pdf', 'FAQ'], ['refund-policy.docx', 'Policy'],
-  ['product-catalog.csv', 'Products'], ['past-tickets-2025.txt', 'History'],
-];
-function addFile(name, kindLabel) {
-  obFiles++;
-  const chunks = 8 + Math.floor(Math.random()*30);
-  const el = document.createElement('div');
-  el.className = 'dz-file';
-  el.innerHTML = `<span class="fname">⬡ ${name} <span class="tag">${kindLabel}</span></span><span class="fmeta" data-ing>ingesting…</span>`;
-  $('dzFiles').appendChild(el);
-  const meta = el.querySelector('[data-ing]');
-  let c = 0;
-  const iv = setInterval(() => {
-    c += Math.ceil(chunks/8);
-    if (c >= chunks) { c = chunks; clearInterval(iv); meta.textContent = `${chunks} chunks · ${chunks} vectors · private`; }
-    else meta.textContent = `embedding ${c}/${chunks}…`;
-  }, REDUCED ? 1 : 140);
-  $('obNext2').disabled = false;
+let trainToken = null;
+async function getTrainToken() {
+  if (!account || !signer) { toast('Connect your wallet first.', 'gold'); return null; }
+  const cacheKey = 'clerk_train_token_' + account.toLowerCase();
+  const cached = sessionStorage.getItem(cacheKey);
+  if (cached) {
+    const expStr = cached.split('.')[1];
+    if (Number(expStr) > Date.now() + 60_000) { trainToken = cached; return cached; }
+  }
+  const timestamp = Date.now();
+  const message = `clerk.io train session ${account.toLowerCase()} ${timestamp}`;
+  let signature;
+  try { signature = await signer.signMessage(message); }
+  catch { toast('Signature declined — needed once per session to train Clerk.', 'gold'); return null; }
+  const resp = await fetch('/api/train/session', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ address: account, timestamp, signature }),
+  }).then(r => r.ok ? r.json() : Promise.reject(r));
+  trainToken = resp.token;
+  sessionStorage.setItem(cacheKey, resp.token);
+  return resp.token;
 }
-$('dropzone').onclick = () => $('fileInput').click();
-$('fileInput').onchange = e => { [...e.target.files].forEach(f => addFile(f.name, 'Upload')); e.target.value=''; };
-$('dropzone').ondragover = e => { e.preventDefault(); };
-$('dropzone').ondrop = e => { e.preventDefault(); [...e.dataTransfer.files].forEach(f => addFile(f.name, 'Upload')); };
-$('addSamples').onclick = () => { SAMPLES.forEach(([n,k],i)=>setTimeout(()=>addFile(n,k), i*180)); $('addSamples').disabled = true; };
+async function trainFetch(path, opts = {}) {
+  const token = trainToken || await getTrainToken();
+  if (!token) throw { error: 'connect your wallet to train Clerk' };
+  const res = await fetch(path, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, ...(opts.headers || {}) },
+  });
+  if (res.status === 401) { trainToken = null; sessionStorage.removeItem('clerk_train_token_' + account.toLowerCase()); throw { error: 'session expired, try again' }; }
+  if (!res.ok) throw await res.json().catch(() => ({ error: 'request failed' }));
+  return res.json();
+}
 
-// step 3: mode
-document.querySelectorAll('.mode-card').forEach(c => c.onclick = () => {
-  document.querySelectorAll('.mode-card').forEach(x=>x.classList.remove('sel'));
-  c.classList.add('sel');
-  obMode = c.dataset.mode; biz.mode = obMode;
-  $('obNext3').disabled = false;
-});
-
-// step 4: escrow + deploy
-$('priceRange').oninput = e => {
-  PRICE_SOLO = (+e.target.value)/1000;
-  PRICE_ASSIST = PRICE_SOLO * ASSISTED_BPS / 10000;
-  $('priceVal').textContent = PRICE_SOLO.toFixed(3);
+// --- Teach Clerk your FAQs ---
+$('docFileBtn').onclick = () => $('docFile').click();
+$('docFile').onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    $('docContent').value = String(reader.result || '');
+    if (!$('docTitle').value) $('docTitle').value = f.name.replace(/\.[^.]+$/, '');
+  };
+  reader.readAsText(f);
+  e.target.value = '';
 };
-
-// --- Swap-to-OKB panel ---
-$('swapToggle').onclick = () => $('swapBox').classList.toggle('open');
-$('swapQuoteBtn').onclick = async () => {
-  const from = $('swapFrom').value;
-  const amt = parseFloat($('swapAmount').value);
-  const out = $('swapQuote');
-  if (!amt || amt <= 0) { out.innerHTML = '<span class="q-err">Enter an amount.</span>'; return; }
-  out.innerHTML = '<span class="q-line">Fetching best route from OKX DEX…</span>';
+$('docUploadBtn').onclick = async () => {
+  const title = $('docTitle').value.trim();
+  const content = $('docContent').value.trim();
+  const status = $('docStatus');
+  if (!title || !content) { status.className = 'train-status err'; status.textContent = 'Add a title and some content first.'; return; }
+  status.className = 'train-status'; status.textContent = 'Embedding and adding to the knowledge base…';
   try {
-    // Live path: POST /api/swap/quote {fromToken, amountWei}. Falls back to an
-    // indicative estimate when the swap API isn't wired yet (no OKX keys).
-    const resp = await fetch('/api/swap/quote', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fromToken: from, amountWei: String(BigInt(Math.round(amt * 1e6))) }) // stables = 6dp
-    }).then(r => r.ok ? r.json() : Promise.reject(r));
-    const okb = Number(resp.toAmount) / 1e18;
-    out.innerHTML = `<span class="q-ok">≈ ${okb.toFixed(4)} OKB</span>
-      <div class="q-line">route: ${(resp.route||[]).join(' → ') || 'OKX aggregator'}</div>
-      <div class="q-line">price impact: ${resp.priceImpactPct ?? '—'}% · gas ~${resp.estGasFee ?? '—'} OKB</div>
-      <div class="q-line">Next: your wallet signs the swap — Clerk never holds funds.</div>`;
-  } catch {
-    // Indicative fallback (OKB ≈ parity placeholder) so the flow is demonstrable pre-keys.
-    const est = amt * 0.98;
-    out.innerHTML = `<span class="q-ok">≈ ${est.toFixed(4)} OKB</span> <span class="q-line">(indicative)</span>
-      <div class="q-line">Live quotes activate once the OKX DEX API keys are set on the server.</div>
-      <div class="q-line">Your wallet would sign the swap next — Clerk never holds funds.</div>`;
-  }
-};
-let deployTxHash = null;
-$('deployBtn').onclick = async () => {
-  if (obDeployed) return;
-  biz.deposit = parseFloat($('depositInput').value) || 1.0;
-  biz.priceOKB = PRICE_SOLO;
-  const seq = $('deploySeq');
-  const line = (html) => { const el = document.createElement('div'); el.className='ln'; el.innerHTML = html; seq.appendChild(el); return el; };
-
-  line('Connecting wallet…');
-  const connected = await connectWallet();
-  if (!connected) { line('<span style="color:var(--gold)">Connect a wallet on X Layer to continue.</span>'); return; }
-  line(`<span class="ok">✓ wallet connected — ${account.slice(0,6)}…${account.slice(-4)}</span>`);
-
-  const already = await ledger.merchants(account);
-  if (already.registered) {
-    line('<span class="ok">✓ this wallet is already a registered merchant — skipping registration</span>');
-    obDeployed = true;
-    $('deployBtn').style.display = 'none';
-    const nxt = $('obNext4'); nxt.style.display = 'inline-flex'; nxt.disabled = false;
-    return;
-  }
-
-  line(`Sending <b>registerMerchant()</b> — free, no deposit. Confirm gas in your wallet…`);
-  try {
-    const tx = await ledger.registerMerchant();
-    deployTxHash = tx.hash;
-    line(`tx sent ${txLink(tx.hash)} — waiting for confirmation…`);
-    await tx.wait();
-    line(`<span class="ok">✓ registered onchain. Accuracy ledger ready — no OKB fee to clerk.io. ${txLink(tx.hash)}</span>`);
-    obDeployed = true;
-    $('deployBtn').style.display = 'none';
-    const nxt = $('obNext4'); nxt.style.display = 'inline-flex'; nxt.disabled = false;
+    const r = await trainFetch('/api/train/upload', { method: 'POST', body: JSON.stringify({ title, content }) });
+    status.className = 'train-status ok'; status.textContent = `Added "${title}" — ${r.chunks} chunk${r.chunks === 1 ? '' : 's'} indexed.`;
+    $('docTitle').value = ''; $('docContent').value = '';
+    await refreshDocs();
   } catch (e) {
-    line(`<span style="color:var(--magenta)">Transaction failed: ${e.shortMessage || e.reason || e.message}</span>`);
+    status.className = 'train-status err'; status.textContent = e.error || e.message || 'Upload failed.';
   }
 };
-
-// step 5: summary
-function buildSummary() {
-  const modeLabel = { shadow:'Shadow mode — Clerk watches first', sandbox:'Sandbox trial — private quizzes', live:'Live — resolving now' }[biz.mode || 'live'];
-  $('summaryRows').innerHTML = `
-    <div class="srow"><b>Business</b><span>${biz.name}</span></div>
-    <div class="srow"><b>Ticket system</b><span>${biz.system}</span></div>
-    <div class="srow"><b>Knowledge</b><span class="c">${obFiles || 0} docs uploaded this session · private · deletable</span></div>
-    <div class="srow"><b>Starting mode</b><span>${modeLabel}</span></div>
-    <div class="srow"><b>Fees to clerk.io</b><span class="c">none · accuracy only</span></div>
-    <div class="srow"><b>Register tx</b><span class="v">${deployTxHash ? `<a href="${XLAYER.explorerTx(deployTxHash)}" target="_blank" rel="noopener">${deployTxHash.slice(0,10)}… ↗</a>` : 'already registered'}</span></div>
-    <div class="srow"><b>Reputation</b><span>ratings + reopens onchain · portable</span></div>`;
+async function refreshDocs() {
+  const list = $('docList');
+  try {
+    const r = await trainFetch('/api/train/documents');
+    const docs = r.documents || [];
+    list.innerHTML = docs.length ? docs.map(d => `<div class="doc-item"><span class="dn">⬡ ${esc(d.title)}</span><span class="dm">${d.doc_chunks?.[0]?.count ?? 0} chunks · ${new Date(d.created_at).toLocaleDateString()}</span></div>`).join('')
+      : '<div class="doc-empty">No documents yet — add your first FAQ above.</div>';
+  } catch { list.innerHTML = '<div class="doc-empty">Couldn\'t load documents.</div>'; }
 }
+
+// --- Tutor Clerk ---
+$('tutorAskBtn').onclick = async () => {
+  const q = $('tutorQ').value.trim();
+  if (!q) return;
+  const box = $('tutorAnswer');
+  box.innerHTML = `<div class="tutor-answer"><div class="demo-who clerk"><span class="dot"></span>clerk drafts</div><div class="draft">thinking…</div></div>`;
+  try {
+    const r = await trainFetch('/api/train/ask', { method: 'POST', body: JSON.stringify({ question: q }) });
+    box.innerHTML = `
+      <div class="tutor-answer">
+        <div class="demo-who clerk"><span class="dot"></span>clerk drafts</div>
+        <div class="draft">${esc(r.draft)}</div>
+        <div class="demo-conf"><span>confidence</span><div class="bar"><span style="width:${r.confidence}%"></span></div><span>${Math.round(r.confidence)}%</span></div>
+        <div class="tutor-verdict">
+          <button class="btn primary" data-verdict="good">👍 Good answer</button>
+          <button class="btn ghost" data-verdict="corrected">👎 Needs work</button>
+        </div>
+        <div class="tutor-fix" id="tutorFix">
+          <div class="field"><label>How should Clerk have answered?</label><textarea id="tutorCorrection" rows="3"></textarea></div>
+          <button class="btn violet" id="tutorSaveFix">Save correction</button>
+        </div>
+      </div>`;
+    wireTutorAnswer(r.turnId);
+  } catch (e) {
+    box.innerHTML = `<div class="tutor-answer"><span style="color:var(--gold);font-size:12px">${esc(e.error || e.message || 'Clerk could not draft a reply.')}</span></div>`;
+  }
+};
+function wireTutorAnswer(turnId) {
+  const box = $('tutorAnswer');
+  box.querySelectorAll('[data-verdict]').forEach(b => b.onclick = async () => {
+    if (b.dataset.verdict === 'corrected') { $('tutorFix').classList.add('on'); return; }
+    await gradeTurn(turnId, 'good');
+  });
+  const saveBtn = $('tutorSaveFix');
+  if (saveBtn) saveBtn.onclick = async () => {
+    const fix = $('tutorCorrection').value.trim();
+    if (!fix) return;
+    await gradeTurn(turnId, 'corrected', fix);
+  };
+}
+async function gradeTurn(turnId, verdict, correction) {
+  const box = $('tutorAnswer');
+  try {
+    await trainFetch('/api/train/feedback', { method: 'POST', body: JSON.stringify({ turnId, verdict, correction }) });
+    const note = verdict === 'good' ? '✓ marked good — reinforced as-is.' : '✓ correction saved — Clerk will draw on this next time.';
+    box.querySelector('.tutor-answer').insertAdjacentHTML('beforeend', `<div class="tutor-graded">⛓ ${note}</div>`);
+    box.querySelectorAll('[data-verdict]').forEach(b => b.disabled = true);
+    if ($('tutorSaveFix')) $('tutorSaveFix').disabled = true;
+    $('tutorQ').value = '';
+    await refreshHistory();
+  } catch (e) {
+    toast(e.error || e.message || 'Could not save feedback.', 'gold');
+  }
+}
+async function refreshHistory() {
+  const hist = $('tutorHist');
+  try {
+    const r = await trainFetch('/api/train/history');
+    const turns = r.turns || [];
+    hist.innerHTML = turns.length ? turns.map(t => `
+      <div class="tutor-item">
+        <div class="tq">${esc(t.question)}</div>
+        <div class="ta">${esc(t.verdict === 'corrected' ? t.correction : t.draft)}</div>
+        <span class="tv ${t.verdict}">${t.verdict}</span>
+      </div>`).join('') : '<div class="hist-empty">No tutoring turns yet — ask Clerk something above.</div>';
+  } catch { hist.innerHTML = '<div class="hist-empty">Couldn\'t load history.</div>'; }
+}
+
+// ================== ONBOARDING — connect ==================
+let obBusy = false;
+function obStatus(text, kind='') { const el = $('obStatus'); el.className = 'ob-status' + (kind ? ' '+kind : ''); el.textContent = text; }
 
 async function enterDashboard() {
+  demoRunning = false;
   $('onboarding').style.display = 'none';
   $('app').classList.add('on');
   $('bizLabel').textContent = biz.name;
   if (!ledger) { const ok = await connectWallet(); if (!ok) { toast('Connect your wallet to load live data.', 'gold'); return; } }
-  speak(`Hey ${biz.name}. Reading your live data from X Layer…`);
+  speak(`Reading your live data from X Layer…`);
   await loadLive();
   speak(`You're live. This view reads directly from the onchain accuracy ledger — nothing here is simulated.`);
   mind('chain', `connected · <b>${account.slice(0,6)}…${account.slice(-4)}</b> · X Layer`);
 }
-$('enterApp').onclick = enterDashboard;
-$('obSkip').onclick = () => { obGo(4); }; // skip straight to funding — registration is still real
 
-// ================== INIT ==================
-state = fresh();
-render();
+$('connectWalletBtn').onclick = async () => {
+  if (obBusy) return;
+  obBusy = true;
+  try {
+    obStatus('Connecting wallet…');
+    const connected = await connectWallet();
+    if (!connected) { obStatus('Connect a wallet on X Layer to continue.', 'err'); return; }
+    obStatus(`Connected ${account.slice(0,6)}…${account.slice(-4)}`, 'ok');
+
+    const already = await ledger.merchants(account);
+    if (!already.registered) {
+      const MIN_GAS_WEI = 500000000000000n; // ~0.0005 OKB
+      if (await provider.getBalance(account) < MIN_GAS_WEI) {
+        obStatus('Wallet has no gas yet — requesting a free drip from clerk.io…');
+        try {
+          await fetch('/api/gas-drip', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ address: account }),
+          }).then(res => res.ok ? res.json() : Promise.reject(res));
+        } catch {
+          obStatus(`Couldn't auto-fund gas — send a small amount of OKB to ${account.slice(0,6)}…${account.slice(-4)} and try again.`, 'err');
+          return;
+        }
+      }
+      obStatus('Sending registerMerchant() — free, no deposit. Confirm in your wallet…');
+      try {
+        const tx = await ledger.registerMerchant();
+        await tx.wait();
+      } catch (e) {
+        obStatus(`Registration failed: ${e.shortMessage || e.reason || e.message}`, 'err');
+        return;
+      }
+    }
+    obStatus('Registered — entering dashboard…', 'ok');
+    await enterDashboard();
+  } finally { obBusy = false; }
+};
+
+// --- Google sign-in (Supabase Auth) — identity only; onchain actions still need a wallet ---
+const supabase = (window.SUPABASE_URL && window.SUPABASE_ANON_KEY)
+  ? createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY)
+  : null;
+
+$('googleBtn').onclick = async () => {
+  if (!supabase) { obStatus('Google sign-in is not configured yet.', 'err'); return; }
+  obStatus('Redirecting to Google…');
+  const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.href } });
+  if (error) obStatus(error.message, 'err');
+};
+
+if (supabase) {
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    if (session) obStatus(`Signed in as ${session.user.email} — connect a wallet to see live onchain reputation.`, 'ok');
+  });
+}
+
+// ================== DEMO PANEL — scripted example, not live data ==================
+let demoRunning = true;
+const sleep = ms => new Promise(r => setTimeout(r, REDUCED ? 0 : ms));
+async function typeInto(el, text, speed = 16) {
+  if (REDUCED) { el.textContent = text; return; }
+  for (let i = 1; i <= text.length && demoRunning; i++) { el.textContent = text.slice(0, i); await sleep(speed); }
+}
+const DEMO_SCENARIOS = [
+  {
+    customer: "Hey, my order #4521 says delivered but I never got it. Can you help?",
+    thinking: ['reading ticket history', 'checking knowledge base: shipping policy', 'checking prior resolutions: 3 similar cases'],
+    conf: 92,
+    draft: "Sorry about that! I've checked and your package shows delivered at 2:14pm to the porch. I've filed a carrier trace and I'm sending a replacement now — no need to wait on the trace to ship.",
+    escalate: false,
+  },
+  {
+    customer: "The refund policy says 30 days but I'm on day 34 — can you still help?",
+    thinking: ['reading ticket history', 'checking knowledge base: refund policy', 'confidence below threshold — escalating'],
+    conf: 58,
+    draft: "I want to get this right, so I'm looping in a teammate to confirm we can make an exception here.",
+    escalate: true,
+    human: "Approved — repeat customer, only 4 days over. Full refund, note the exception reason as 'loyalty'.",
+    learned: "Clerk learned: loyalty customers get refund-window flexibility. Applied to future tickets like this one.",
+  },
+];
+async function playDemo() {
+  const stage = $('demoStage');
+  let i = 0;
+  while (demoRunning) {
+    const s = DEMO_SCENARIOS[i % DEMO_SCENARIOS.length];
+    stage.innerHTML = '';
+
+    const cWrap = document.createElement('div'); cWrap.className = 'demo-line';
+    cWrap.innerHTML = `<div class="demo-who customer"><span class="dot"></span>customer</div><div class="cust-msg" id="dCust"></div>`;
+    stage.appendChild(cWrap);
+    await typeInto(cWrap.querySelector('#dCust'), s.customer);
+    await sleep(500); if (!demoRunning) return;
+
+    const tWrap = document.createElement('div'); tWrap.className = 'demo-line';
+    tWrap.innerHTML = `<div class="demo-who clerk"><span class="dot"></span>clerk is reading</div>`;
+    stage.appendChild(tWrap);
+    for (const line of s.thinking) {
+      const l = document.createElement('div'); l.className = 'demo-think'; l.textContent = '◇ ' + line;
+      tWrap.appendChild(l);
+      await sleep(500); if (!demoRunning) return;
+    }
+    await sleep(300); if (!demoRunning) return;
+
+    const dWrap = document.createElement('div'); dWrap.className = 'demo-line';
+    dWrap.innerHTML = `<div class="demo-who clerk"><span class="dot"></span>clerk drafts</div>
+      <div class="draft ${s.escalate ? 'esc' : ''}" id="dDraft"></div>
+      <div class="demo-conf"><span>confidence</span><div class="bar"><span id="dBar"></span></div><span id="dPct">0%</span></div>`;
+    stage.appendChild(dWrap);
+    await typeInto(dWrap.querySelector('#dDraft'), s.draft);
+    dWrap.querySelector('#dBar').style.width = s.conf + '%';
+    dWrap.querySelector('#dPct').textContent = s.conf + '%';
+    await sleep(900); if (!demoRunning) return;
+
+    if (s.escalate) {
+      const hWrap = document.createElement('div'); hWrap.className = 'demo-line';
+      hWrap.innerHTML = `<div class="demo-who human"><span class="dot"></span>human resolves</div><div class="human-msg" id="dHuman"></div>`;
+      stage.appendChild(hWrap);
+      await typeInto(hWrap.querySelector('#dHuman'), s.human);
+      await sleep(600); if (!demoRunning) return;
+
+      const lWrap = document.createElement('div'); lWrap.className = 'demo-line';
+      lWrap.innerHTML = `<div class="demo-learn">⛓ ${s.learned}</div>`;
+      stage.appendChild(lWrap);
+      await sleep(2600);
+    } else {
+      const okWrap = document.createElement('div'); okWrap.className = 'demo-line';
+      okWrap.innerHTML = `<div class="demo-learn" style="color:var(--cyan);background:var(--cyan-dim);border-color:rgba(34,243,238,.3)">✓ resolved solo · rating + resolution recorded onchain</div>`;
+      stage.appendChild(okWrap);
+      await sleep(2600);
+    }
+    i++;
+  }
+}
+playDemo();
 </script>

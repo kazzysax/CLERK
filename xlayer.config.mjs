@@ -159,6 +159,7 @@ export async function ensureWalletOnNet(ethereum, netCfg) {
 /**
  * ClerkReputation ABI — accuracy onchain, no OKB fees / escrow.
  * (trackRecord 4th field = finalized count, not wei paid)
+ * Ratings are customer-only — there is no merchant self-rating path.
  */
 export const LEDGER_ABI = [
   "function merchants(address) view returns (bool registered,uint64 registeredAt)",
@@ -166,11 +167,10 @@ export const LEDGER_ABI = [
   "function reopen(bytes32 ticketHash)",
   "function reopenWindow() view returns (uint64)",
   "function finalize(bytes32 ticketHash)",
-  "function trackRecord() view returns (uint256 solo,uint256 assisted,uint256 reopened,uint256 finalized,uint256 custScoreCenti,uint256 custRatings,uint256 merchScoreCenti,uint256 merchRatings)",
+  "function trackRecord() view returns (uint256 solo,uint256 assisted,uint256 reopened,uint256 finalized,uint256 custScoreCenti,uint256 custRatings)",
   "function soloRateBps() view returns (uint256)",
   "function customerScore() view returns (uint256 centistars, uint256 ratings)",
-  "function merchantScore() view returns (uint256 centistars, uint256 ratings)",
-  "function getTicket(bytes32) view returns (tuple(address merchant,uint64 registeredAt,uint64 resolvedAt,uint16 confidenceBps,bool resolvedByClerk,uint8 status,uint8 customerRating,uint8 merchantRating))",
+  "function getTicket(bytes32) view returns (tuple(address merchant,uint64 registeredAt,uint64 resolvedAt,uint16 confidenceBps,bool resolvedByClerk,uint8 status,uint8 customerRating))",
   "function totalFinalized() view returns (uint256)",
   "event TicketRegistered(bytes32 indexed ticketHash, address indexed merchant)",
   "event ResolutionFinalized(bytes32 indexed ticketHash, bool resolvedByClerk)",

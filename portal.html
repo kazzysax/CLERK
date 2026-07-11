@@ -151,13 +151,12 @@
             <div class="bal"><div class="k">Accuracy ledger</div><div class="v g" id="balLocked">Onchain</div></div>
             <div class="bal"><div class="k">Wallet gas</div><div class="v v" id="balWallet">—</div></div>
           </div>
-          <div class="muted-note" style="margin-top:12px">You do not pay OKB to clerk.io. Gas for wallet txs is network-native only.</div>
+          <div class="muted-note" style="margin-top:12px">You do not pay OKB to clerk.io. If your wallet has no gas, clerk.io sends a small one-time OKB drip automatically.</div>
         </div>
         <div class="glass card">
           <div class="ct">clerk.io reputation <span class="chip">onchain</span></div>
           <div class="scores">
             <div class="score cust"><div class="k">Customer</div><div class="v" id="cScore">—</div><div class="n" id="cN"></div></div>
-            <div class="score merch"><div class="k">Merchant</div><div class="v" id="mScore">—</div><div class="n" id="mN"></div></div>
           </div>
           <div class="muted-note" id="repMeta"></div>
         </div>
@@ -266,7 +265,6 @@
 
     const tr = await ledger.trackRecord();
     $("#cScore").textContent = centi(tr[4]); $("#cN").textContent = Number(tr[5])+" ratings";
-    $("#mScore").textContent = centi(tr[6]); $("#mN").textContent = Number(tr[7])+" ratings";
     $("#repMeta").innerHTML = `${Number(tr[0])} solo · ${Number(tr[1])} assisted · ${Number(tr[2])} reopened · ${Number(tr[3])} finalized · <b style="color:var(--cyan)">no fees</b>`;
 
     await loadTickets();
@@ -310,6 +308,23 @@
   }
   function fmtDur(s){ const h=Math.floor(s/3600),m=Math.floor((s%3600)/60); return h>0?`${h}h ${m}m`:`${m}m`; }
 
+  const MIN_GAS_WEI = 500000000000000n; // ~0.0005 OKB
+  async function ensureGas() {
+    if (await provider.getBalance(account) >= MIN_GAS_WEI) return true;
+    toast("No gas in wallet — requesting a free drip from clerk.io…");
+    try {
+      const r = await fetch("/api/gas-drip", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address: account }),
+      }).then(res => res.ok ? res.json() : Promise.reject(res));
+      toast(`clerk.io sent gas ${txLink(r.txHash)}`, "violet");
+      return true;
+    } catch {
+      toast(`Couldn't auto-fund gas — send a small amount of OKB to your wallet and try again.`, "gold");
+      return false;
+    }
+  }
+
   async function withTx(label, fn, kind="") {
     try { toast(`Sending ${label}…`); const tx = await fn(); toast(`${label} submitted ${txLink(tx.hash)}`, kind);
       await tx.wait(); toast(`<b>${label} confirmed</b> ${txLink(tx.hash)}`, kind); await refresh(); }
@@ -317,10 +332,12 @@
   }
 
   async function register() {
+    if (!(await ensureGas())) return;
     await withTx("registerMerchant", ()=>ledger.registerMerchant(), "violet");
   }
   async function doReopen(h) {
     if(!confirm("Reopen this resolution? The accuracy claim is voided onchain and the ticket returns to a human.")) return;
+    if (!(await ensureGas())) return;
     await withTx("reopen", ()=>ledger.reopen(h), "magenta");
   }
 

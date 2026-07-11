@@ -28,7 +28,7 @@
   .lede { color:var(--muted); font-size:14px; margin:14px 0 30px; max-width:60ch; }
   .lede b { color:var(--paper); font-weight:600; }
 
-  .scores { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
+  .scores { display:grid; grid-template-columns:1fr; max-width:340px; gap:16px; margin-bottom:16px; }
   .scard { background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:24px; backdrop-filter:blur(12px); position:relative; overflow:hidden; }
   .scard::after { content:''; position:absolute; inset:0; border-radius:18px; padding:1px; background:linear-gradient(140deg,rgba(34,243,238,.4),rgba(139,92,246,.3),transparent); -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0); -webkit-mask-composite:xor; mask-composite:exclude; pointer-events:none; }
   .scard .lbl { font-family:var(--mono); font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); }
@@ -68,7 +68,7 @@
 
   .loading { text-align:center; color:var(--muted); font-family:var(--mono); font-size:12px; padding:40px; }
   .err { background:rgba(255,176,32,.08); border:1px solid rgba(255,176,32,.3); border-radius:12px; padding:16px; font-size:12.5px; color:var(--gold); font-family:var(--mono); }
-  @media (max-width:640px) { .scores,.stat-row{grid-template-columns:1fr 1fr;} .lrow{grid-template-columns:80px 1fr 70px;} .lrow .conf,.lrow .rate{display:none;} }
+  @media (max-width:640px) { .scores{max-width:none;} .stat-row{grid-template-columns:1fr 1fr;} .lrow{grid-template-columns:80px 1fr 70px;} .lrow .conf,.lrow .rate{display:none;} }
   @media (prefers-reduced-motion:reduce){ .orb{animation:none;} }
 </style>
 
@@ -143,7 +143,6 @@
     const solo = Number(tr[0]), assisted = Number(tr[1]), reopened = Number(tr[2]);
     const finalized = Number(tr[3]); // count — no OKB fees
     const custScore = centi(tr[4]), custN = Number(tr[5]);
-    const merchScore = centi(tr[6]), merchN = Number(tr[7]);
     const total = solo + assisted;
     const soloRate = total ? Math.round(solo / total * 100) : 0;
 
@@ -175,13 +174,7 @@
           <div class="lbl">Customer rating</div>
           <div class="big">${custScore}<span class="of">/5</span></div>
           <div style="color:var(--cyan)">${stars(custScore)}</div>
-          <div class="n">${custN} rating${custN===1?'':'s'} · from customers clerk.io served</div>
-        </div>
-        <div class="scard merch">
-          <div class="lbl">Merchant rating</div>
-          <div class="big">${merchScore}<span class="of">/5</span></div>
-          <div style="color:var(--violet)">${stars(merchScore)}</div>
-          <div class="n">${merchN} rating${merchN===1?'':'s'} · guardrailed to real interactions</div>
+          <div class="n">${custN} rating${custN===1?'':'s'} · from customers clerk.io served · no merchant self-rating</div>
         </div>
       </div>
 

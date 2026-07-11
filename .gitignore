@@ -19,3 +19,7 @@ typechain-types/
 # Logs
 *.log
 npm-debug.log*
+
+# Supabase CLI local state (project ref, pooler url — machine-local, not versioned)
+supabase/.temp/
+supabase/.branches/

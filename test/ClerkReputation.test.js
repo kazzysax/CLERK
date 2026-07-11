@@ -34,7 +34,6 @@ describe("ClerkReputation (no payment)", () => {
     expect(balBefore).to.equal(0n);
 
     await rep.rateAsCustomer(th, 5, PROOF);
-    await rep.connect(merchant).rateAsMerchant(th, 5);
 
     await time.increase(WINDOW + 1);
     await rep.finalize(th);

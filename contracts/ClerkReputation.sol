@@ -7,8 +7,8 @@ pragma solidity ^0.8.24;
  * What still lives onchain (auditable, permanent):
  *  - Ticket hash at intake (provenance; no PII)
  *  - Resolution: confidence, solo vs human-assisted, timestamps
- *  - Reopen (voids ratings, counted publicly)
- *  - Customer + merchant star ratings (Bayesian scores)
+ *  - Reopen (voids rating, counted publicly)
+ *  - Customer star ratings only (Bayesian score) — merchants cannot rate themselves
  *  - Public track record (solo / assisted / reopened / rating math)
  *
  * What is gone vs ClerkLedgerV2:
@@ -16,6 +16,7 @@ pragma solidity ^0.8.24;
  *  - No price-per-ticket
  *  - No locked payouts, claimable balances, or claimPayout
  *  - Merchants register for free (gas only)
+ *  - No merchant self-rating — the only rating input is the end customer's
  *
  * Merchants may still need tiny amounts of native OKB for *wallet gas* on X Layer;
  * that is network gas, not a fee paid to Clerk.
@@ -33,7 +34,6 @@ contract ClerkReputation {
     error RatingWindowClosed();
     error InvalidRating();
     error AlreadyRated();
-    error CustomerRatingRequired();
     error InvalidConfidence();
     error ZeroAddress();
     error Paused();
@@ -48,7 +48,6 @@ contract ClerkReputation {
         bool resolvedByClerk;
         Status status;
         uint8 customerRating;
-        uint8 merchantRating;
     }
 
     struct MerchantAccount {
@@ -72,8 +71,6 @@ contract ClerkReputation {
 
     uint256 public custRatingCount;
     uint256 public custRatingSum;
-    uint256 public merchRatingCount;
-    uint256 public merchRatingSum;
     uint256 public soloResolved;
     uint256 public humanAssisted;
     uint256 public reopenedCount;
@@ -90,7 +87,6 @@ contract ClerkReputation {
     event TicketReopened(bytes32 indexed ticketHash, address indexed by);
     event ResolutionFinalized(bytes32 indexed ticketHash, bool resolvedByClerk);
     event CustomerRated(bytes32 indexed ticketHash, uint8 rating, bytes32 proofHash);
-    event MerchantRated(bytes32 indexed ticketHash, uint8 rating);
     event PausedSet(bool paused);
     event OperatorTransferStarted(address indexed current, address indexed pendingOp);
     event OperatorTransferred(address indexed previous, address indexed current);
@@ -178,11 +174,6 @@ contract ClerkReputation {
             custRatingSum -= t.customerRating;
             t.customerRating = 0;
         }
-        if (t.merchantRating != 0) {
-            merchRatingCount -= 1;
-            merchRatingSum -= t.merchantRating;
-            t.merchantRating = 0;
-        }
 
         t.status = Status.Reopened;
         reopenedCount += 1;
@@ -227,20 +218,6 @@ contract ClerkReputation {
         emit CustomerRated(ticketHash, rating, proofHash);
     }
 
-    function rateAsMerchant(bytes32 ticketHash, uint8 rating) external whenNotPaused {
-        if (rating < 1 || rating > 5) revert InvalidRating();
-        Ticket storage t = tickets[ticketHash];
-        if (msg.sender != t.merchant) revert NotTicketMerchant();
-        if (t.status != Status.Pending && t.status != Status.Finalized) revert WrongStatus();
-        if (block.timestamp > uint256(t.resolvedAt) + RATING_WINDOW) revert RatingWindowClosed();
-        if (t.customerRating == 0) revert CustomerRatingRequired();
-        if (t.merchantRating != 0) revert AlreadyRated();
-        t.merchantRating = rating;
-        merchRatingCount += 1;
-        merchRatingSum += rating;
-        emit MerchantRated(ticketHash, rating);
-    }
-
     function _bayes(uint256 count, uint256 sum) private pure returns (uint256) {
         return (BAYES_WEIGHT * PRIOR_CENTISTARS + sum * 100) / (BAYES_WEIGHT + count);
     }
@@ -249,17 +226,13 @@ contract ClerkReputation {
         return (_bayes(custRatingCount, custRatingSum), custRatingCount);
     }
 
-    function merchantScore() external view returns (uint256 centistars, uint256 ratings) {
-        return (_bayes(merchRatingCount, merchRatingSum), merchRatingCount);
-    }
-
     function soloRateBps() external view returns (uint256) {
         uint256 total = soloResolved + humanAssisted;
         if (total == 0) return 0;
         return (soloResolved * BPS) / total;
     }
 
-    /// Compatible shape with older UIs: 4th value is finalized *count* (not OKB paid).
+    /// 4th value is finalized *count* (not OKB paid). Rating fields are customer-only.
     function trackRecord()
         external
         view
@@ -269,9 +242,7 @@ contract ClerkReputation {
             uint256 reopened,
             uint256 finalized,
             uint256 custScoreCenti,
-            uint256 custRatings,
-            uint256 merchScoreCenti,
-            uint256 merchRatings
+            uint256 custRatings
         )
     {
         return (
@@ -280,9 +251,7 @@ contract ClerkReputation {
             reopenedCount,
             totalFinalized,
             _bayes(custRatingCount, custRatingSum),
-            custRatingCount,
-            _bayes(merchRatingCount, merchRatingSum),
-            merchRatingCount
+            custRatingCount
         );
     }
 

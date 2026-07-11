@@ -37,7 +37,6 @@ async function main() {
   const proofHash = hre.ethers.keccak256(hre.ethers.toUtf8Bytes("demo-rating-token"));
   console.log("rateAsCustomer 5★…");
   await (await rep.rateAsCustomer(ticketHash, 5, proofHash)).wait();
-  await (await rep.rateAsMerchant(ticketHash, 5)).wait();
 
   console.log(`Waiting ${REOPEN_WINDOW}s reopen window…`);
   await new Promise((r) => setTimeout(r, (REOPEN_WINDOW + 5) * 1000));

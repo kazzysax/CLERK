@@ -53,6 +53,7 @@ const REQUIRED_ENV = [
   "SUPABASE_URL", "SUPABASE_SERVICE_KEY", "ANTHROPIC_API_KEY",
   "OPERATOR_PRIVATE_KEY", "CLERK_LEDGER_ADDRESS", "XLAYER_RPC",
   "WEBHOOK_SECRET", "RATING_TOKEN_SECRET", "ADMIN_TOKEN", "PUBLIC_BASE_URL",
+  "TRAIN_SESSION_SECRET",
 ];
 const missing = REQUIRED_ENV.filter(k => !process.env[k]);
 if (missing.length) {
@@ -167,6 +168,40 @@ function verifyRatingToken(token) {
   return ticketHash;
 }
 
+/**
+ * Train-Clerk dashboard session: a merchant signs one wallet message to prove
+ * they hold the registered address, then gets a short-lived bearer token —
+ * same {payload}.{expiry}.{HMAC} shape as rating tokens, keyed on the address
+ * instead of a ticket hash. Avoids a wallet popup on every dashboard action.
+ */
+function mintTrainToken(address, ttlHours = 2) {
+  const addr = address.toLowerCase();
+  const exp = Date.now() + ttlHours * 3600 * 1000;
+  const mac = hmac(`${addr}|${exp}`, ENV.TRAIN_SESSION_SECRET);
+  return `${addr}.${exp}.${mac}`;
+}
+function verifyTrainToken(token) {
+  const [addr, expStr, mac] = String(token).split(".");
+  if (!addr || !expStr || !mac) return null;
+  if (!safeEqual(mac, hmac(`${addr}|${expStr}`, ENV.TRAIN_SESSION_SECRET))) return null;
+  if (Date.now() > Number(expStr)) return null;
+  return addr;
+}
+async function requireTrainAuth(req, res, next) {
+  try {
+    const token = (req.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+    const address = verifyTrainToken(token);
+    if (!address) return res.status(401).json({ error: "sign in with your wallet to train Clerk" });
+    const { data: merchant } = await supabase.from("merchants").select("*").eq("wallet_address", address).maybeSingle();
+    if (!merchant) return res.status(401).json({ error: "wallet not registered — connect and register first" });
+    req.merchant = merchant;
+    next();
+  } catch (e) {
+    log("error", "train auth failed", { err: e.message });
+    res.status(500).json({ error: "internal" });
+  }
+}
+
 /** Per-IP sliding-window rate limiter. */
 const buckets = new Map();
 function rateLimit(maxPerMin) {
@@ -242,6 +277,29 @@ async function embed(text) {
   const { data, error } = await supabase.functions.invoke("embed", { body: { text: scrubPII(text) } });
   if (error) throw error;
   return data.embedding;
+}
+
+/** Bridges a wallet (the dashboard's only identity) to the Supabase multi-tenant `merchants` row. */
+async function getOrCreateMerchant(walletAddress) {
+  const addr = walletAddress.toLowerCase();
+  const { data: existing } = await supabase.from("merchants").select("*").eq("wallet_address", addr).maybeSingle();
+  if (existing) return existing;
+  const { data: created, error } = await supabase.from("merchants")
+    .insert({ name: `Merchant ${addr.slice(0, 6)}…${addr.slice(-4)}`, wallet_address: addr })
+    .select().single();
+  if (error) throw error;
+  return created;
+}
+
+/** Splits pasted/uploaded text into retrieval-sized chunks: paragraphs, hard-wrapped if oversized. */
+function chunkText(text, maxLen = 900) {
+  const paras = String(text).split(/\n{2,}/).map(p => p.trim()).filter(Boolean);
+  const chunks = [];
+  for (const p of paras) {
+    if (p.length <= maxLen) { chunks.push(p); continue; }
+    for (let i = 0; i < p.length; i += maxLen) chunks.push(p.slice(i, i + maxLen));
+  }
+  return chunks;
 }
 
 async function handleTicket(merchantId, externalId, customerMessage) {
@@ -460,6 +518,39 @@ app.post("/api/swap/plan", rateLimit(20), async (req, res) => {
   }
 });
 
+// --- Gas sponsorship: Clerk sends a small one-time OKB drip so a merchant
+// wallet never needs to hold funds before registerMerchant()/reopen(). ---
+const GAS_DRIP_WEI = BigInt(process.env.GAS_DRIP_WEI || "1000000000000000"); // 0.001 OKB default
+const GAS_DRIP_DAILY_CAP = Number(process.env.GAS_DRIP_DAILY_CAP || 200);
+
+app.post("/api/gas-drip", rateLimit(5), async (req, res) => {
+  const address = String(req.body.address || "").toLowerCase();
+  if (!ethers.isAddress(address)) return res.status(400).json({ error: "invalid address" });
+
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const { count } = await supabase
+    .from("gas_drips").select("address", { count: "exact", head: true })
+    .eq("status", "sent").gte("requested_at", since);
+  if ((count || 0) >= GAS_DRIP_DAILY_CAP) {
+    log("warn", "gas drip daily cap hit", { count });
+    return res.status(429).json({ error: "gas sponsorship is at today's cap, try again later" });
+  }
+
+  const { error: claimErr } = await supabase.from("gas_drips").insert({ address, amount_wei: String(GAS_DRIP_WEI) });
+  if (claimErr) return res.status(409).json({ error: "this wallet already received a gas drip" });
+
+  const receipt = await txq.submit(`gasDrip:${address}`, (nonce) =>
+    operator.sendTransaction({ to: address, value: GAS_DRIP_WEI, nonce })
+  );
+  if (!receipt) {
+    await supabase.from("gas_drips").delete().eq("address", address);
+    return res.status(502).json({ error: "drip failed, try again" });
+  }
+  await supabase.from("gas_drips").update({ status: "sent", tx_hash: receipt.hash, sent_at: new Date().toISOString() }).eq("address", address);
+  log("info", "gas drip sent", { address, amountWei: String(GAS_DRIP_WEI), hash: receipt.hash });
+  res.json({ ok: true, txHash: receipt.hash, amountWei: String(GAS_DRIP_WEI) });
+});
+
 // --- Admin kill switch (bearer token; put behind VPN/allowlist too) ---
 app.post("/admin/pause", rateLimit(5), async (req, res) => {
   if (!safeEqual(req.get("Authorization"), `Bearer ${ENV.ADMIN_TOKEN}`)) return res.status(401).json({ error: "unauthorized" });
@@ -527,6 +618,148 @@ app.post("/api/widget/learn", rateLimit(60), async (req, res) => {
     res.json(out);
   } catch (e) {
     res.status(e.status || 500).json({ error: e.message || "internal" });
+  }
+});
+
+// ------------------------------------------------------------------
+// 6c. Train Clerk (merchant dashboard) — FAQ upload + private tutoring Q&A.
+// Auth: the merchant signs one wallet message per session (SIWE-style) and
+// trades it for a short-lived bearer token — see mintTrainToken/requireTrainAuth.
+// ------------------------------------------------------------------
+app.post("/api/train/session", rateLimit(10), async (req, res) => {
+  try {
+    const { address, timestamp, signature } = req.body;
+    if (!address || !ethers.isAddress(address) || !timestamp || !signature) {
+      return res.status(400).json({ error: "address, timestamp, signature required" });
+    }
+    if (Math.abs(Date.now() - Number(timestamp)) > 5 * 60 * 1000) return res.status(401).json({ error: "signature expired, try again" });
+    const message = `clerk.io train session ${address.toLowerCase()} ${timestamp}`;
+    let recovered;
+    try { recovered = ethers.verifyMessage(message, signature); } catch { return res.status(401).json({ error: "invalid signature" }); }
+    if (recovered.toLowerCase() !== address.toLowerCase()) return res.status(401).json({ error: "signature does not match address" });
+
+    const merchant = await getOrCreateMerchant(address);
+    res.json({ token: mintTrainToken(address), merchant: { id: merchant.id, name: merchant.name } });
+  } catch (e) {
+    log("error", "train session failed", { err: e.message });
+    res.status(500).json({ error: "internal" });
+  }
+});
+
+/** Paste or upload (.txt/.md/.csv, read client-side) a FAQ/policy doc — chunked + embedded immediately. */
+app.post("/api/train/upload", requireTrainAuth, rateLimit(15), async (req, res) => {
+  try {
+    const title = String(req.body.title || "").trim().slice(0, 200);
+    const content = String(req.body.content || "").trim();
+    if (!title || !content) return res.status(400).json({ error: "title and content required" });
+    if (content.length > 120_000) return res.status(400).json({ error: "document too large (120k char max)" });
+
+    const { data: doc, error: docErr } = await supabase.from("documents")
+      .insert({ merchant_id: req.merchant.id, title, storage_path: "inline", kind: "faq" })
+      .select().single();
+    if (docErr) throw docErr;
+
+    const chunks = chunkText(content);
+    let stored = 0;
+    for (const chunk of chunks) {
+      try {
+        const embedding = await embed(chunk);
+        const { error: chunkErr } = await supabase.from("doc_chunks")
+          .insert({ merchant_id: req.merchant.id, document_id: doc.id, content: chunk, embedding });
+        if (!chunkErr) stored++;
+      } catch (chunkEmbedErr) {
+        log("warn", "chunk embed failed, skipping", { document: doc.id, err: chunkEmbedErr.message });
+      }
+    }
+    log("info", "doc trained", { merchant: req.merchant.id, title, chunks: stored, of: chunks.length });
+    if (stored === 0) return res.status(502).json({ error: "couldn't index any part of this document, try again" });
+    res.json({ ok: true, documentId: doc.id, chunks: stored, of: chunks.length });
+  } catch (e) {
+    log("error", "train upload failed", { err: e.message });
+    res.status(500).json({ error: e.message || "internal" });
+  }
+});
+
+app.get("/api/train/documents", requireTrainAuth, rateLimit(30), async (req, res) => {
+  try {
+    const { data } = await supabase.from("documents")
+      .select("id, title, kind, created_at, doc_chunks(count)")
+      .eq("merchant_id", req.merchant.id).order("created_at", { ascending: false });
+    res.json({ documents: data || [] });
+  } catch (e) {
+    log("error", "train documents failed", { err: e.message });
+    res.status(500).json({ error: "internal" });
+  }
+});
+
+/** Merchant asks Clerk a rehearsal question — runs the exact production draft path, nothing sent to a customer. */
+app.post("/api/train/ask", requireTrainAuth, rateLimit(20), async (req, res) => {
+  try {
+    const question = String(req.body.question || "").trim();
+    if (!question) return res.status(400).json({ error: "question required" });
+
+    const qEmbedding = await embed(question);
+    const { data: chunks } = await supabase.rpc("match_chunks", { p_merchant: req.merchant.id, query_embedding: qEmbedding, match_count: 5 });
+    const { data: tonep } = await supabase.from("tone_profiles").select("profile").eq("merchant_id", req.merchant.id).maybeSingle();
+    const { data: exemplars } = await supabase.from("exemplar_replies").select("customer_message, human_reply").eq("merchant_id", req.merchant.id).limit(3);
+
+    const result = await draftWithConfidence(question, chunks ?? [], tonep?.profile, exemplars ?? []);
+    if (!result) return res.status(502).json({ error: "Clerk couldn't draft a reply, try again" });
+
+    const { data: turn, error } = await supabase.from("tutor_turns").insert({
+      merchant_id: req.merchant.id, question, draft: result.draft,
+      confidence: result.confidence, source_used: result.sourceUsed,
+    }).select().single();
+    if (error) throw error;
+
+    res.json({ turnId: turn.id, draft: result.draft, confidence: result.confidence, sourceUsed: result.sourceUsed });
+  } catch (e) {
+    log("error", "train ask failed", { err: e.message });
+    res.status(500).json({ error: "internal" });
+  }
+});
+
+/** Merchant grades the rehearsal answer; a correction becomes real training fuel via learnFromHuman. */
+app.post("/api/train/feedback", requireTrainAuth, rateLimit(30), async (req, res) => {
+  try {
+    const { turnId, verdict, correction } = req.body;
+    if (!["good", "corrected"].includes(verdict)) return res.status(400).json({ error: "verdict must be good or corrected" });
+    const { data: turn } = await supabase.from("tutor_turns").select("*").eq("id", turnId).eq("merchant_id", req.merchant.id).maybeSingle();
+    if (!turn) return res.status(404).json({ error: "unknown tutoring turn" });
+    if (turn.verdict !== "pending") return res.status(409).json({ error: "already graded" });
+
+    if (verdict === "corrected") {
+      const fix = String(correction || "").trim();
+      if (!fix) return res.status(400).json({ error: "correction text required" });
+      await learnFromHuman(widgetCtx(), {
+        merchantId: req.merchant.id,
+        customerMessage: turn.question,
+        humanReply: fix,
+        clerkDraft: turn.draft,
+        clerkConfidence: turn.confidence,
+        source: "merchant_tutor",
+        category: "_tutor",
+      });
+      await supabase.from("tutor_turns").update({ verdict: "corrected", correction: fix }).eq("id", turnId);
+    } else {
+      await supabase.from("tutor_turns").update({ verdict: "good" }).eq("id", turnId);
+    }
+    res.json({ ok: true });
+  } catch (e) {
+    log("error", "train feedback failed", { err: e.message });
+    res.status(500).json({ error: "internal" });
+  }
+});
+
+app.get("/api/train/history", requireTrainAuth, rateLimit(30), async (req, res) => {
+  try {
+    const { data } = await supabase.from("tutor_turns")
+      .select("id, question, draft, confidence, verdict, correction, created_at")
+      .eq("merchant_id", req.merchant.id).order("created_at", { ascending: false }).limit(20);
+    res.json({ turns: data || [] });
+  } catch (e) {
+    log("error", "train history failed", { err: e.message });
+    res.status(500).json({ error: "internal" });
   }
 });
 

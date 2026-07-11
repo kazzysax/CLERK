@@ -292,6 +292,7 @@ export async function learnFromHuman(ctx, {
   clerkDraft = null,
   clerkConfidence = null,
   source = "human_resolve",
+  category = "_widget",
 }) {
   const cust = scrubPII(String(customerMessage || "").trim());
   const hum = scrubPII(String(humanReply || "").trim());
@@ -302,7 +303,7 @@ export async function learnFromHuman(ctx, {
     merchant_id: merchantId,
     customer_message: cust,
     human_reply: hum,
-    category: "_widget",
+    category,
   });
 
   // 2) Learning event audit trail

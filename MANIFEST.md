@@ -34,6 +34,9 @@ this package contains the current, superseding version of everything.
 | 2 | `supabase/schema-production.sql` | Single-use rating tokens, reopen-rate ops view. |
 | 3 | `supabase/schema-conversations.sql` | Per-ticket message threads, turn intent, thread-state columns. |
 | 4 | `supabase/schema-calibration.sql` | Per-category calibration table, escalation-outcome tracking, pattern-detection function. |
+| 5 | `supabase/schema-widget.sql` | Embeddable website widget: `widget_sessions`, `shadow_drafts`, `learning_events`, `widget_queue`, plus `mode`/`widget_public_key` columns on `merchants`. Required by `server.mjs`/`widget.mjs` and by step 6 below — was missing from this table previously, which is why it can be easy to skip. |
+| 6 | `supabase/schema-gasdrip.sql` | One-time-per-wallet gas sponsorship ledger (`/api/gas-drip`) — Clerk pays merchant registration/reopen gas so merchants never need to hold OKB. |
+| 7 | `supabase/schema-tutor.sql` | `tutor_turns` table + extends `learning_events.source` for the dashboard's "Train Clerk" panel (`/api/train/*`) — FAQ upload and a private ask/grade/correct tutoring loop. |
 
 ## 4. Front-ends (static HTML, open directly or host anywhere)
 | File | Purpose | Before use |
@@ -74,7 +77,7 @@ imports under that protocol.
 2. Run the test suite (`npx hardhat test --config hardhat.test.config.cjs`) — confirm 30/30 passing.
 3. Deploy: `npx hardhat run scripts/deploy-v2.cjs --network xlayerTestnet` (then `xlayer` for mainnet).
 4. Set `window.CLERK_CONTRACT` in `clerk-neo.html`, `portal.html`, and `reputation.html`; serve them with `npx serve .` (not `file://`).
-5. Run the 4 SQL files against Supabase, in the order in section 3.
+5. Run the SQL files against Supabase, in the order in section 3.
 6. Fill `.env` from `.env.example`; run `node server.mjs`.
 7. Point your ticket system's webhooks at the server's `/webhooks/*` routes.
 

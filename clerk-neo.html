@@ -511,6 +511,13 @@
       </div>
     </div>
 
+    <div class="glass-soft wallet-link-banner" id="walletLinkBanner" style="display:none;padding:13px 14px">
+      <div style="font-size:12px;color:var(--paper);font-weight:500">Add a wallet</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5">Connect one to register onchain and see live reputation — everything you've trained stays on this account.</div>
+      <button class="btn primary" id="linkWalletBtn" style="width:100%;justify-content:center;margin-top:10px;font-size:12px;padding:9px">⬢ Connect Wallet</button>
+      <div class="train-status" id="linkWalletStatus"></div>
+    </div>
+
     <div class="mind glass-soft">
       <div class="speak" id="speak"></div>
       <div class="mind-lines" id="mindLines"></div>
@@ -562,6 +569,7 @@
     </div>
 
     <div id="queueView">
+      <div class="empty" id="queueNoWallet" style="display:none;margin:26px">No wallet connected yet — use "Connect Wallet" in the sidebar to register onchain and see live ticket/reputation data here.</div>
       <div class="board">
         <div class="col new"><div class="col-head"><span class="t"><span class="sw"></span>Registered</span><span class="count" id="cNew">0</span></div><div class="col-body" id="colNew"></div></div>
         <div class="col prog"><div class="col-head"><span class="t"><span class="sw"></span>Awaiting Clerk</span><span class="count" id="cProg">0</span></div><div class="col-body" id="colProg"></div></div>
@@ -620,11 +628,11 @@
   // Live deploy bootstrap — flip CLERK_NETWORK to "mainnet" and update address for prod.
   window.CLERK_NETWORK = "testnet";
   window.CLERK_CONTRACT = "0x6020b4475326480da78b3D166C5476639e450837";
-  // Fill in from Supabase Dashboard → Settings → API to enable "Continue with Google".
-  // The anon key is safe to expose client-side — it only grants what RLS policies allow.
-  // Google sign-in also needs the Google provider enabled under Authentication → Providers.
-  window.SUPABASE_URL = "";
-  window.SUPABASE_ANON_KEY = "";
+  // The anon/publishable key is safe to expose client-side — it only grants what
+  // RLS policies allow. Google sign-in also needs the Google provider enabled
+  // under Supabase Dashboard → Authentication → Providers → Google.
+  window.SUPABASE_URL = "https://wtaqobfyzhrzbgsrxzsl.supabase.co";
+  window.SUPABASE_ANON_KEY = "sb_publishable_KwqsfAAZgROBjL_GB33k7Q_r9wlp5Ma";
 </script>
 <script type="module">
 import { ethers } from "https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.min.js";
@@ -831,7 +839,7 @@ async function doReopen(h) {
   if (ok) { speak("Reopened — that resolution won't count as a clean win."); await loadLive(); }
 }
 
-$('runBtn').onclick = loadLive;
+$('runBtn').onclick = () => { if (ledger) loadLive(); };
 document.addEventListener('click', e => {
   const card = e.target.closest('.ticket');
   if (card && !e.target.closest('[data-reopen]')) window.open(XLAYER.explorerAddr(CONTRACT), '_blank');
@@ -845,21 +853,26 @@ function switchTab(view) {
   $('tabTrain').classList.toggle('on', view === 'train');
   $('queueView').style.display = view === 'queue' ? '' : 'none';
   $('trainView').style.display = view === 'train' ? '' : 'none';
-  $('queueControls').style.display = view === 'queue' ? '' : 'none';
+  $('queueControls').style.display = view === 'queue' && ledger ? '' : 'none';
+  if (view === 'queue') {
+    $('queueNoWallet').style.display = ledger ? 'none' : '';
+    document.querySelector('.board').style.display = ledger ? '' : 'none';
+    document.querySelector('.ledger-wrap').style.display = ledger ? '' : 'none';
+  }
   if (view === 'train') { refreshDocs(); refreshHistory(); }
 }
 $('tabQueue').onclick = () => switchTab('queue');
 $('tabTrain').onclick = () => switchTab('train');
 
+// One cache slot for whichever sign-in path is currently active (wallet or
+// Google) — a browser tab has exactly one active dashboard session at a time.
+const TRAIN_TOKEN_KEY = 'clerk_train_token';
 let trainToken = null;
-async function getTrainToken() {
-  if (!account || !signer) { toast('Connect your wallet first.', 'gold'); return null; }
-  const cacheKey = 'clerk_train_token_' + account.toLowerCase();
-  const cached = sessionStorage.getItem(cacheKey);
-  if (cached) {
-    const expStr = cached.split('.')[1];
-    if (Number(expStr) > Date.now() + 60_000) { trainToken = cached; return cached; }
-  }
+function cacheTrainToken(token) { trainToken = token; sessionStorage.setItem(TRAIN_TOKEN_KEY, token); }
+function clearTrainToken() { trainToken = null; sessionStorage.removeItem(TRAIN_TOKEN_KEY); }
+
+async function getTrainTokenViaWallet() {
+  if (!account || !signer) return null;
   const timestamp = Date.now();
   const message = `clerk.io train session ${account.toLowerCase()} ${timestamp}`;
   let signature;
@@ -869,18 +882,27 @@ async function getTrainToken() {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ address: account, timestamp, signature }),
   }).then(r => r.ok ? r.json() : Promise.reject(r));
-  trainToken = resp.token;
-  sessionStorage.setItem(cacheKey, resp.token);
+  cacheTrainToken(resp.token);
   return resp.token;
+}
+async function getTrainToken() {
+  const cached = sessionStorage.getItem(TRAIN_TOKEN_KEY);
+  if (cached) {
+    const expStr = cached.split('.')[1];
+    if (Number(expStr) > Date.now() + 60_000) { trainToken = cached; return cached; }
+  }
+  if (account && signer) return getTrainTokenViaWallet();
+  toast('Sign in with your wallet or Google first.', 'gold');
+  return null;
 }
 async function trainFetch(path, opts = {}) {
   const token = trainToken || await getTrainToken();
-  if (!token) throw { error: 'connect your wallet to train Clerk' };
+  if (!token) throw { error: 'sign in to train Clerk' };
   const res = await fetch(path, {
     ...opts,
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, ...(opts.headers || {}) },
   });
-  if (res.status === 401) { trainToken = null; sessionStorage.removeItem('clerk_train_token_' + account.toLowerCase()); throw { error: 'session expired, try again' }; }
+  if (res.status === 401) { clearTrainToken(); throw { error: 'session expired, try again' }; }
   if (!res.ok) throw await res.json().catch(() => ({ error: 'request failed' }));
   return res.json();
 }
@@ -994,12 +1016,43 @@ async function refreshHistory() {
 let obBusy = false;
 function obStatus(text, kind='') { const el = $('obStatus'); el.className = 'ob-status' + (kind ? ' '+kind : ''); el.textContent = text; }
 
+/** Registers the connected wallet onchain if needed, sponsoring gas first if the wallet is empty. Throws with a user-facing message on failure. */
+async function registerOnchainIfNeeded(statusFn) {
+  const already = await ledger.merchants(account);
+  if (already.registered) return;
+  const MIN_GAS_WEI = 500000000000000n; // ~0.0005 OKB
+  if (await provider.getBalance(account) < MIN_GAS_WEI) {
+    statusFn('Wallet has no gas yet — requesting a free drip from clerk.io…');
+    try {
+      await fetch('/api/gas-drip', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: account }),
+      }).then(res => res.ok ? res.json() : Promise.reject(res));
+    } catch {
+      throw new Error(`Couldn't auto-fund gas — send a small amount of OKB to ${account.slice(0,6)}…${account.slice(-4)} and try again.`);
+    }
+  }
+  statusFn('Sending registerMerchant() — free, no deposit. Confirm in your wallet…');
+  try {
+    const tx = await ledger.registerMerchant();
+    await tx.wait();
+  } catch (e) {
+    throw new Error(`Registration failed: ${e.shortMessage || e.reason || e.message}`);
+  }
+}
+
 async function enterDashboard() {
   demoRunning = false;
   $('onboarding').style.display = 'none';
   $('app').classList.add('on');
   $('bizLabel').textContent = biz.name;
-  if (!ledger) { const ok = await connectWallet(); if (!ok) { toast('Connect your wallet to load live data.', 'gold'); return; } }
+  if (!ledger) {
+    // No wallet yet (Google-only session) — Train Clerk works fully; the
+    // queue tab and rail reputation panel show a connect-wallet prompt.
+    $('walletLinkBanner').style.display = '';
+    switchTab('train');
+    return;
+  }
   speak(`Reading your live data from X Layer…`);
   await loadLive();
   speak(`You're live. This view reads directly from the onchain accuracy ledger — nothing here is simulated.`);
@@ -1014,40 +1067,57 @@ $('connectWalletBtn').onclick = async () => {
     const connected = await connectWallet();
     if (!connected) { obStatus('Connect a wallet on X Layer to continue.', 'err'); return; }
     obStatus(`Connected ${account.slice(0,6)}…${account.slice(-4)}`, 'ok');
-
-    const already = await ledger.merchants(account);
-    if (!already.registered) {
-      const MIN_GAS_WEI = 500000000000000n; // ~0.0005 OKB
-      if (await provider.getBalance(account) < MIN_GAS_WEI) {
-        obStatus('Wallet has no gas yet — requesting a free drip from clerk.io…');
-        try {
-          await fetch('/api/gas-drip', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ address: account }),
-          }).then(res => res.ok ? res.json() : Promise.reject(res));
-        } catch {
-          obStatus(`Couldn't auto-fund gas — send a small amount of OKB to ${account.slice(0,6)}…${account.slice(-4)} and try again.`, 'err');
-          return;
-        }
-      }
-      obStatus('Sending registerMerchant() — free, no deposit. Confirm in your wallet…');
-      try {
-        const tx = await ledger.registerMerchant();
-        await tx.wait();
-      } catch (e) {
-        obStatus(`Registration failed: ${e.shortMessage || e.reason || e.message}`, 'err');
-        return;
-      }
-    }
+    try { await registerOnchainIfNeeded(t => obStatus(t)); }
+    catch (e) { obStatus(e.message, 'err'); return; }
     obStatus('Registered — entering dashboard…', 'ok');
     await enterDashboard();
   } finally { obBusy = false; }
 };
 
-// --- Google sign-in (Supabase Auth) — identity only; onchain actions still need a wallet ---
+// --- Connect a wallet from inside the dashboard (Google-first accounts) ---
+$('linkWalletBtn').onclick = async () => {
+  const status = (t, kind='') => { const el = $('linkWalletStatus'); el.className = 'train-status' + (kind ? ' '+kind : ''); el.textContent = t; };
+  status('Connecting wallet…');
+  const connected = await connectWallet();
+  if (!connected) { status('Connect a wallet on X Layer to continue.', 'err'); return; }
+
+  const timestamp = Date.now();
+  const message = `clerk.io link wallet ${account.toLowerCase()} ${timestamp}`;
+  let signature;
+  try { signature = await signer.signMessage(message); }
+  catch { status('Signature declined.', 'err'); return; }
+  try {
+    await trainFetch('/api/train/link-wallet', { method: 'POST', body: JSON.stringify({ address: account, timestamp, signature }) });
+  } catch (e) { status(e.error || e.message || 'Could not link wallet.', 'err'); return; }
+
+  try { await registerOnchainIfNeeded(t => status(t)); }
+  catch (e) { status(e.message, 'err'); return; }
+
+  status('Wallet linked — loading live data…', 'ok');
+  $('walletLinkBanner').style.display = 'none';
+  await loadLive();
+  switchTab('queue');
+};
+
+// --- Google sign-in (Supabase Auth) — a real second login path onto the same account system ---
 const supabase = (window.SUPABASE_URL && window.SUPABASE_ANON_KEY)
   ? createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY)
   : null;
+
+async function enterViaGoogle(session) {
+  obStatus(`Signed in as ${session.user.email} — entering dashboard…`, 'ok');
+  try {
+    const resp = await fetch('/api/train/session-google', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accessToken: session.access_token }),
+    }).then(r => r.ok ? r.json() : Promise.reject(r));
+    cacheTrainToken(resp.token);
+    biz.name = resp.merchant?.name || biz.name;
+    await enterDashboard();
+  } catch (e) {
+    obStatus(e.error || e.message || 'Could not complete Google sign-in.', 'err');
+  }
+}
 
 $('googleBtn').onclick = async () => {
   if (!supabase) { obStatus('Google sign-in is not configured yet.', 'err'); return; }
@@ -1057,9 +1127,8 @@ $('googleBtn').onclick = async () => {
 };
 
 if (supabase) {
-  supabase.auth.getSession().then(({ data: { session } }) => {
-    if (session) obStatus(`Signed in as ${session.user.email} — connect a wallet to see live onchain reputation.`, 'ok');
-  });
+  supabase.auth.getSession().then(({ data: { session } }) => { if (session) enterViaGoogle(session); });
+  supabase.auth.onAuthStateChange((event, session) => { if (event === 'SIGNED_IN' && session && !trainToken) enterViaGoogle(session); });
 }
 
 // ================== DEMO PANEL — scripted example, not live data ==================

@@ -169,32 +169,45 @@ function verifyRatingToken(token) {
 }
 
 /**
- * Train-Clerk dashboard session: a merchant signs one wallet message to prove
- * they hold the registered address, then gets a short-lived bearer token —
- * same {payload}.{expiry}.{HMAC} shape as rating tokens, keyed on the address
- * instead of a ticket hash. Avoids a wallet popup on every dashboard action.
+ * Train-Clerk dashboard session: two ways in — a wallet signs one message
+ * proving ownership ("wallet:0xabc..."), or a Google sign-in verified via
+ * Supabase Auth ("google:<user-id>") — either way, resolves to the same
+ * short-lived bearer token shape ({subject}.{expiry}.{HMAC}, same pattern
+ * as rating tokens) so every downstream route treats them identically.
+ * Avoids a wallet popup / Google redirect on every dashboard action.
  */
-function mintTrainToken(address, ttlHours = 2) {
-  const addr = address.toLowerCase();
+function mintTrainToken(subject, ttlHours = 2) {
   const exp = Date.now() + ttlHours * 3600 * 1000;
-  const mac = hmac(`${addr}|${exp}`, ENV.TRAIN_SESSION_SECRET);
-  return `${addr}.${exp}.${mac}`;
+  const mac = hmac(`${subject}|${exp}`, ENV.TRAIN_SESSION_SECRET);
+  return `${subject}.${exp}.${mac}`;
 }
 function verifyTrainToken(token) {
-  const [addr, expStr, mac] = String(token).split(".");
-  if (!addr || !expStr || !mac) return null;
-  if (!safeEqual(mac, hmac(`${addr}|${expStr}`, ENV.TRAIN_SESSION_SECRET))) return null;
+  const [subject, expStr, mac] = String(token).split(".");
+  if (!subject || !expStr || !mac) return null;
+  if (!safeEqual(mac, hmac(`${subject}|${expStr}`, ENV.TRAIN_SESSION_SECRET))) return null;
   if (Date.now() > Number(expStr)) return null;
-  return addr;
+  return subject;
+}
+async function resolveMerchantBySubject(subject) {
+  if (subject.startsWith("wallet:")) {
+    const { data } = await supabase.from("merchants").select("*").eq("wallet_address", subject.slice(7)).maybeSingle();
+    return data;
+  }
+  if (subject.startsWith("google:")) {
+    const { data } = await supabase.from("merchants").select("*").eq("auth_user_id", subject.slice(7)).maybeSingle();
+    return data;
+  }
+  return null;
 }
 async function requireTrainAuth(req, res, next) {
   try {
     const token = (req.get("Authorization") || "").replace(/^Bearer\s+/i, "");
-    const address = verifyTrainToken(token);
-    if (!address) return res.status(401).json({ error: "sign in with your wallet to train Clerk" });
-    const { data: merchant } = await supabase.from("merchants").select("*").eq("wallet_address", address).maybeSingle();
-    if (!merchant) return res.status(401).json({ error: "wallet not registered — connect and register first" });
+    const subject = verifyTrainToken(token);
+    if (!subject) return res.status(401).json({ error: "sign in to train Clerk" });
+    const merchant = await resolveMerchantBySubject(subject);
+    if (!merchant) return res.status(401).json({ error: "account not found — sign in again" });
     req.merchant = merchant;
+    req.authSubject = subject;
     next();
   } catch (e) {
     log("error", "train auth failed", { err: e.message });
@@ -279,13 +292,24 @@ async function embed(text) {
   return data.embedding;
 }
 
-/** Bridges a wallet (the dashboard's only identity) to the Supabase multi-tenant `merchants` row. */
-async function getOrCreateMerchant(walletAddress) {
+/** Bridges a wallet to the Supabase multi-tenant `merchants` row. */
+async function getOrCreateMerchantByWallet(walletAddress) {
   const addr = walletAddress.toLowerCase();
   const { data: existing } = await supabase.from("merchants").select("*").eq("wallet_address", addr).maybeSingle();
   if (existing) return existing;
   const { data: created, error } = await supabase.from("merchants")
     .insert({ name: `Merchant ${addr.slice(0, 6)}…${addr.slice(-4)}`, wallet_address: addr })
+    .select().single();
+  if (error) throw error;
+  return created;
+}
+
+/** Bridges a Google-authenticated Supabase Auth user to a `merchants` row — no wallet required yet. */
+async function getOrCreateMerchantByAuthUser(authUserId, email) {
+  const { data: existing } = await supabase.from("merchants").select("*").eq("auth_user_id", authUserId).maybeSingle();
+  if (existing) return existing;
+  const { data: created, error } = await supabase.from("merchants")
+    .insert({ name: email || `Merchant ${authUserId.slice(0, 8)}`, auth_user_id: authUserId })
     .select().single();
   if (error) throw error;
   return created;
@@ -623,8 +647,12 @@ app.post("/api/widget/learn", rateLimit(60), async (req, res) => {
 
 // ------------------------------------------------------------------
 // 6c. Train Clerk (merchant dashboard) — FAQ upload + private tutoring Q&A.
-// Auth: the merchant signs one wallet message per session (SIWE-style) and
-// trades it for a short-lived bearer token — see mintTrainToken/requireTrainAuth.
+// Two independent sign-in paths, same account system underneath — see
+// mintTrainToken/resolveMerchantBySubject/requireTrainAuth above:
+//   - wallet: one signed message (SIWE-style) proves address ownership.
+//   - google: a verified Supabase Auth session, no wallet required.
+// A Google-first merchant can link a wallet later via /api/train/link-wallet
+// without creating a second account.
 // ------------------------------------------------------------------
 app.post("/api/train/session", rateLimit(10), async (req, res) => {
   try {
@@ -638,10 +666,52 @@ app.post("/api/train/session", rateLimit(10), async (req, res) => {
     try { recovered = ethers.verifyMessage(message, signature); } catch { return res.status(401).json({ error: "invalid signature" }); }
     if (recovered.toLowerCase() !== address.toLowerCase()) return res.status(401).json({ error: "signature does not match address" });
 
-    const merchant = await getOrCreateMerchant(address);
-    res.json({ token: mintTrainToken(address), merchant: { id: merchant.id, name: merchant.name } });
+    const merchant = await getOrCreateMerchantByWallet(address);
+    res.json({ token: mintTrainToken(`wallet:${address.toLowerCase()}`), merchant: { id: merchant.id, name: merchant.name } });
   } catch (e) {
     log("error", "train session failed", { err: e.message });
+    res.status(500).json({ error: "internal" });
+  }
+});
+
+/** Google sign-in: the client hands over its Supabase Auth access token; we verify it server-side. */
+app.post("/api/train/session-google", rateLimit(10), async (req, res) => {
+  try {
+    const { accessToken } = req.body;
+    if (!accessToken) return res.status(400).json({ error: "accessToken required" });
+    const { data, error } = await supabase.auth.getUser(accessToken);
+    if (error || !data?.user) return res.status(401).json({ error: "invalid or expired Google session" });
+
+    const merchant = await getOrCreateMerchantByAuthUser(data.user.id, data.user.email);
+    res.json({ token: mintTrainToken(`google:${data.user.id}`), merchant: { id: merchant.id, name: merchant.name } });
+  } catch (e) {
+    log("error", "train google session failed", { err: e.message });
+    res.status(500).json({ error: "internal" });
+  }
+});
+
+/** Attach a wallet to the CURRENT (e.g. Google-first) account — never creates a second merchant row. */
+app.post("/api/train/link-wallet", requireTrainAuth, rateLimit(10), async (req, res) => {
+  try {
+    const { address, timestamp, signature } = req.body;
+    if (!address || !ethers.isAddress(address) || !timestamp || !signature) {
+      return res.status(400).json({ error: "address, timestamp, signature required" });
+    }
+    if (Math.abs(Date.now() - Number(timestamp)) > 5 * 60 * 1000) return res.status(401).json({ error: "signature expired, try again" });
+    const message = `clerk.io link wallet ${address.toLowerCase()} ${timestamp}`;
+    let recovered;
+    try { recovered = ethers.verifyMessage(message, signature); } catch { return res.status(401).json({ error: "invalid signature" }); }
+    if (recovered.toLowerCase() !== address.toLowerCase()) return res.status(401).json({ error: "signature does not match address" });
+
+    const addr = address.toLowerCase();
+    const { data: clash } = await supabase.from("merchants").select("id").eq("wallet_address", addr).maybeSingle();
+    if (clash && clash.id !== req.merchant.id) return res.status(409).json({ error: "this wallet is already linked to a different account" });
+
+    await supabase.from("merchants").update({ wallet_address: addr }).eq("id", req.merchant.id);
+    log("info", "wallet linked to account", { merchant: req.merchant.id, address: addr });
+    res.json({ ok: true, walletAddress: addr });
+  } catch (e) {
+    log("error", "link wallet failed", { err: e.message });
     res.status(500).json({ error: "internal" });
   }
 });

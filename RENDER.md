@@ -4,8 +4,8 @@
 
 | Piece | Where | Why |
 |--------|--------|-----|
-| **ClerkLedgerV2** | X Layer **testnet** (already live) | Onchain escrow — not hosted on Render |
-| **Supabase** | Your project `wtaqobfyzhrzbgsrxzsl` | Memory, tickets, ratings DB |
+| **ClerkReputation** | X Layer **testnet** (already live) | Onchain accuracy record, no escrow — not hosted on Render |
+| **Supabase** | Your project `wtaqobfyzhrzbgsrxzsl` | Memory, tickets, ratings, Train Clerk DB |
 | **Node API + all HTML pages** | **Render → Web Service** | One public HTTPS URL for everything |
 
 ### Do **not** pick Static Site
@@ -36,12 +36,13 @@ After deploy, pages are:
 | `SUPABASE_URL` | `https://wtaqobfyzhrzbgsrxzsl.supabase.co` |
 | `SUPABASE_SERVICE_KEY` | (service_role JWT) |
 | `OPERATOR_PRIVATE_KEY` | testnet operator key |
-| `CLERK_LEDGER_ADDRESS` | `0x6020b4475326480da78b3D166C5476639e450837` |
+| `CLERK_LEDGER_ADDRESS` | `0x5a067fdaBE4883f6FD1BbFbd0531556411Fc612A` (see `DEPLOYED.md`) |
 | `XLAYER_RPC` | `https://xlayer-testnet.drpc.org` |
 | `XLAYER_NETWORK` | `testnet` |
 | `WEBHOOK_SECRET` | (from local `.env`) |
 | `RATING_TOKEN_SECRET` | (from local `.env`) |
 | `ADMIN_TOKEN` | (from local `.env`) |
+| `TRAIN_SESSION_SECRET` | generate: `openssl rand -hex 32` — required, server won't boot without it |
 | `PUBLIC_BASE_URL` | `https://YOUR-SERVICE.onrender.com` (set after first deploy, then redeploy) |
 
 ## One-time Supabase schema

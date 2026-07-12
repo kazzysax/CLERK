@@ -10,28 +10,45 @@
     --mono:'JetBrains Mono',monospace; --body:'Inter',sans-serif;
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  body{background:var(--void);color:var(--paper);font-family:var(--body);line-height:1.55;min-height:100vh}
+  body{background:var(--void);color:var(--paper);font-family:var(--body);line-height:1.55;min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased}
   body::before{content:'';position:fixed;inset:0;pointer-events:none;
     background:radial-gradient(900px 500px at 12% -10%,rgba(139,92,246,.14),transparent 60%),
                radial-gradient(800px 500px at 95% 8%,rgba(34,243,238,.08),transparent 55%)}
-  .wrap{max-width:720px;margin:0 auto;padding:40px 22px 80px;position:relative}
-  h1{font-size:28px;font-weight:600;margin:12px 0 8px}
+  ::selection{background:rgba(34,243,238,.25)}
+  ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-thumb{background:rgba(124,134,173,.32);border-radius:4px}
+  .aurora{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:0}
+  .aurora i{position:absolute;border-radius:50%;filter:blur(100px);opacity:.12;animation:drift 26s ease-in-out infinite alternate}
+  .aurora i:nth-child(1){width:540px;height:540px;background:#8B5CF6;top:-220px;left:-160px}
+  .aurora i:nth-child(2){width:460px;height:460px;background:var(--cyan);bottom:-200px;right:-140px;opacity:.07;animation-delay:-13s}
+  @keyframes drift{from{transform:translate3d(0,0,0) scale(1)}to{transform:translate3d(70px,50px,0) scale(1.16)}}
+  @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+  .wrap{max-width:720px;margin:0 auto;padding:40px 22px 80px;position:relative;animation:rise .55s cubic-bezier(.22,1,.36,1) both}
+  h1{font-size:28px;font-weight:600;margin:12px 0 8px;letter-spacing:-.02em;background:linear-gradient(180deg,var(--paper),rgba(232,236,255,.72));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
   h2{font-size:16px;font-weight:600;margin:28px 0 10px;color:var(--cyan)}
   p,li{color:var(--muted);font-size:14px}
   .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--violet)}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;margin:14px 0;backdrop-filter:blur(12px)}
+  .card{background:linear-gradient(var(--panel),var(--panel)) padding-box,linear-gradient(150deg,rgba(34,243,238,.30),rgba(124,134,173,.12) 40%,rgba(124,134,173,.12) 62%,rgba(139,92,246,.28)) border-box;border:1px solid transparent;border-radius:16px;padding:20px;margin:14px 0;backdrop-filter:blur(12px);animation:rise .5s cubic-bezier(.22,1,.36,1) both}
+  .card:nth-of-type(2){animation-delay:.06s}.card:nth-of-type(3){animation-delay:.12s}.card:nth-of-type(4){animation-delay:.18s}.card:nth-of-type(5){animation-delay:.24s}.card:nth-of-type(6){animation-delay:.3s}
   code,pre{font-family:var(--mono);font-size:12px}
   pre{background:#0a0c18;border:1px solid var(--line);border-radius:12px;padding:14px;overflow:auto;color:var(--cyan);white-space:pre-wrap}
   .btn{display:inline-flex;margin-top:10px;padding:10px 16px;border-radius:11px;border:none;cursor:pointer;
-    font-weight:700;background:linear-gradient(120deg,var(--cyan),#14c8c4);color:#032120}
-  input,select{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:#0c0f1c;color:var(--paper);margin:6px 0 12px}
+    font-weight:700;background:linear-gradient(120deg,var(--cyan),#14c8c4);color:#032120;position:relative;overflow:hidden;transition:transform .18s,box-shadow .18s}
+  .btn::after{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(110deg,transparent 30%,rgba(255,255,255,.35) 50%,transparent 70%);transform:translateX(-120%);transition:transform .5s ease}
+  .btn:hover{transform:translateY(-1px);box-shadow:0 0 28px rgba(34,243,238,.45)}
+  .btn:hover::after{transform:translateX(120%)}
+  .btn:active{transform:translateY(0) scale(.98)}
+  .btn:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+  input,select{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:#0c0f1c;color:var(--paper);margin:6px 0 12px;outline:none;transition:border-color .18s,box-shadow .18s}
+  input:focus,select:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(34,243,238,.12)}
   label{font-size:12px;color:var(--muted)}
   .ok{color:var(--cyan);font-size:13px;margin-top:8px}
   .err{color:#FF3DA6;font-size:13px;margin-top:8px}
   a{color:var(--violet)}
   ul{padding-left:18px;margin:8px 0}
   li{margin:6px 0}
+  @media(prefers-reduced-motion:reduce){*{animation-duration:.001s !important;animation-delay:0s !important;transition:none !important}}
 </style>
+<div class="aurora" aria-hidden="true"><i></i><i></i></div>
 <div class="wrap">
   <div class="eyebrow">merchant install</div>
   <h1>Put clerk.io on any website</h1>

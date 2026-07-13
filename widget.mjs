@@ -8,7 +8,7 @@
  *             when a human finishes the case.
  *
  * Learning contract: every human resolve path calls learnFromHuman() so
- * exemplars + tone memory grow continuously while Clerk is "on standby".
+ * distilled principles + tone memory grow continuously while Clerk is "on standby".
  */
 
 import crypto from "crypto";
@@ -140,7 +140,7 @@ export async function handleWidgetMessage(ctx, { publicKey, sessionToken, messag
   // --- Always draft (standby nature: never idle) ---
   let chunks = [];
   let tone = null;
-  let exemplars = [];
+  let principles = [];
   try {
     const emb = await ctx.embed(body);
     const { data: ch } = await ctx.supabase.rpc("match_chunks", {
@@ -153,13 +153,13 @@ export async function handleWidgetMessage(ctx, { publicKey, sessionToken, messag
   try {
     const { data: tp } = await ctx.supabase.from("tone_profiles").select("profile").eq("merchant_id", merchant.id).maybeSingle();
     tone = tp?.profile;
-    const { data: ex } = await ctx.supabase.from("exemplar_replies")
-      .select("customer_message, human_reply").eq("merchant_id", merchant.id)
+    const { data: pr } = await ctx.supabase.from("reply_principles")
+      .select("principle").eq("merchant_id", merchant.id)
       .order("created_at", { ascending: false }).limit(5);
-    exemplars = ex || [];
+    principles = pr || [];
   } catch { /* memory optional */ }
 
-  const result = await ctx.draftWithConfidence(body, chunks, tone, exemplars);
+  const result = await ctx.draftWithConfidence(body, chunks, tone, principles);
   const { data: cal } = await ctx.supabase.from("calibration_state")
     .select("auto_send_threshold").eq("merchant_id", merchant.id).maybeSingle();
   const threshold = Number(cal?.auto_send_threshold ?? 80);
@@ -280,8 +280,34 @@ export async function handleWidgetMessage(ctx, { publicKey, sessionToken, messag
 }
 
 /**
+ * Distill one resolved exchange into a generalized reply-writing PRINCIPLE —
+ * the reasoning/policy behind the reply, never the reply's own wording. This
+ * is what keeps Clerk from parroting identical phrasing to different
+ * customers: draftWithConfidence() is fed principles, not literal replies.
+ * Fails open (never blocks a resolution on an LLM hiccup).
+ */
+async function distillPrinciple(llmFn, { customerMessage, humanReply, priorDraft }) {
+  if (!llmFn) return null;
+  const prompt =
+`You are extracting a general reply-writing PRINCIPLE from one resolved customer support exchange. Do NOT extract or restate the literal wording. Do NOT produce reusable customer-facing phrasing. Extract only the underlying reasoning, policy, or decision logic a support agent used, in a way that generalizes to differently-worded future questions on the same topic.
+
+Customer said: ${customerMessage}
+${priorDraft ? `Clerk's draft attempt: ${priorDraft}\n` : ""}Correct/human reply: ${humanReply}
+
+Output ONLY one or two sentences describing the principle/logic (e.g. "Refunds for damaged items are approved without requiring photo proof if the order is under 30 days old" — not "Reply: Sorry to hear that! We'll refund you right away."). Do not include greetings, sign-offs, or customer-facing phrasing. If no generalizable principle can be extracted, output exactly: NONE`;
+  try {
+    const out = String(await llmFn(prompt, 15_000) ?? "").trim();
+    if (!out || out.toUpperCase() === "NONE") return null;
+    return out;
+  } catch {
+    return null; // fail-open — distillation is best-effort, never blocks a resolution
+  }
+}
+
+/**
  * Human finished a case — THE learning path. Always on, standby or live.
- * Stores exemplar, learning_event, optionally refreshes tone.
+ * Stores a distilled principle (not verbatim reply text), learning_event,
+ * optionally refreshes tone.
  */
 export async function learnFromHuman(ctx, {
   merchantId,
@@ -298,13 +324,17 @@ export async function learnFromHuman(ctx, {
   const hum = scrubPII(String(humanReply || "").trim());
   if (!merchantId || !cust || !hum) throw Object.assign(new Error("merchantId, customerMessage, humanReply required"), { status: 400 });
 
-  // 1) Permanent exemplar for few-shot style + content
-  await ctx.supabase.from("exemplar_replies").insert({
-    merchant_id: merchantId,
-    customer_message: cust,
-    human_reply: hum,
-    category,
-  });
+  // 1) Distill the logic behind this reply — not the reply's own wording — so
+  // future drafts apply the same reasoning in fresh phrasing each time.
+  const principle = await distillPrinciple(ctx.llm, { customerMessage: cust, humanReply: hum, priorDraft: clerkDraft });
+  if (principle) {
+    await ctx.supabase.from("reply_principles").insert({
+      merchant_id: merchantId,
+      category,
+      principle: scrubPII(principle),
+      source_ticket_hash: ticketHash,
+    });
+  }
 
   // 2) Learning event audit trail
   await ctx.supabase.from("learning_events").insert({

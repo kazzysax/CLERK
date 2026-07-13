@@ -387,6 +387,11 @@
   .tutor-item .tq { color: var(--paper); font-weight: 500; }
   .tutor-item .ta { color: var(--muted); margin-top: 4px; line-height: 1.5; }
   .tutor-item .tv { font-family: var(--mono); font-size: 9.5px; margin-top: 6px; display: inline-block; padding: 2px 7px; border-radius: 6px; }
+
+  .resolved-list { display: flex; flex-direction: column; gap: 14px; padding: 18px 26px 40px; }
+  .resolved-card { padding: 18px; display: flex; flex-direction: column; gap: 2px; }
+  .resolved-card > .demo-who { margin-top: 12px; }
+  .resolved-card > .cust-msg, .resolved-card > .draft { margin-bottom: 2px; }
   .tutor-item .tv.good { background: var(--cyan-dim); color: var(--cyan); }
   .tutor-item .tv.corrected { background: var(--violet-dim); color: var(--violet); }
   .tutor-item .tv.pending { background: var(--gold-dim); color: var(--gold); }
@@ -581,10 +586,15 @@
       <div class="tabbar">
         <button class="tab on" id="tabQueue" data-view="queue">Live queue</button>
         <button class="tab" id="tabTrain" data-view="train">Train Clerk</button>
+        <button class="tab" id="tabResolved" data-view="resolved">Clerk's resolved tickets</button>
       </div>
       <div class="controls" id="queueControls">
         <span class="speed" id="chainStatus">reading chain…</span>
         <button class="btn primary" id="runBtn">↻ Refresh</button>
+      </div>
+      <div class="controls" id="resolvedControls" style="display:none">
+        <span class="speed" id="resolvedStatus"></span>
+        <button class="btn primary" id="resolvedRefreshBtn">↻ Refresh</button>
       </div>
     </div>
 
@@ -627,16 +637,22 @@
 
         <div class="glass card train-card">
           <div class="ct">Tutor Clerk <span class="chip">rehearsal · nothing sent to a customer</span></div>
-          <p class="train-note">Ask a question a customer might send. See Clerk's real draft and confidence, then tell it whether that's good — or how to do better.</p>
+          <p class="train-note">Rehearse a whole conversation, not just one question — Clerk keeps the thread in mind the way it does on a real ticket. Grade any answer, then keep going or start over.</p>
           <div class="train-row">
             <input id="tutorQ" placeholder="e.g. Do you ship to Canada?" />
             <button class="btn primary" id="tutorAskBtn">Ask Clerk</button>
+            <button class="btn ghost" id="tutorNewBtn" title="Clear this rehearsal and start a fresh conversation">↻ New rehearsal</button>
           </div>
-          <div id="tutorAnswer"></div>
+          <div id="tutorThread"></div>
           <div class="tutor-hist-head">Recent tutoring turns</div>
           <div class="tutor-hist" id="tutorHist"></div>
         </div>
       </div>
+    </div>
+
+    <div id="resolvedView" style="display:none">
+      <p class="train-note" style="margin:18px 26px 0">Every ticket Clerk resolved on its own, with the exact transcript — what the customer said, and exactly what Clerk said back. Refreshes automatically while this tab is open.</p>
+      <div class="resolved-list" id="resolvedList"></div>
     </div>
   </div>
 </div>
@@ -870,21 +886,28 @@ document.addEventListener('click', e => {
 // ================== TRAIN CLERK (dashboard tab) ==================
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
+let currentTab = 'queue';
 function switchTab(view) {
+  currentTab = view;
   $('tabQueue').classList.toggle('on', view === 'queue');
   $('tabTrain').classList.toggle('on', view === 'train');
+  $('tabResolved').classList.toggle('on', view === 'resolved');
   $('queueView').style.display = view === 'queue' ? '' : 'none';
   $('trainView').style.display = view === 'train' ? '' : 'none';
+  $('resolvedView').style.display = view === 'resolved' ? '' : 'none';
   $('queueControls').style.display = view === 'queue' && ledger ? '' : 'none';
+  $('resolvedControls').style.display = view === 'resolved' ? '' : 'none';
   if (view === 'queue') {
     $('queueNoWallet').style.display = ledger ? 'none' : '';
     document.querySelector('.board').style.display = ledger ? '' : 'none';
     document.querySelector('.ledger-wrap').style.display = ledger ? '' : 'none';
   }
   if (view === 'train') { refreshDocs(); refreshHistory(); }
+  if (view === 'resolved') refreshResolvedTickets();
 }
 $('tabQueue').onclick = () => switchTab('queue');
 $('tabTrain').onclick = () => switchTab('train');
+$('tabResolved').onclick = () => switchTab('resolved');
 
 // One cache slot for whichever sign-in path is currently active (wallet or
 // Google) — a browser tab has exactly one active dashboard session at a time.
@@ -966,55 +989,65 @@ async function refreshDocs() {
   } catch { list.innerHTML = '<div class="doc-empty">Couldn\'t load documents.</div>'; }
 }
 
-// --- Tutor Clerk ---
+// --- Tutor Clerk (multi-turn: each ask appends to the running rehearsal thread) ---
+let tutorSessionId = null;
 $('tutorAskBtn').onclick = async () => {
   const q = $('tutorQ').value.trim();
   if (!q) return;
-  const box = $('tutorAnswer');
-  box.innerHTML = `<div class="tutor-answer"><div class="demo-who clerk"><span class="dot"></span>clerk drafts</div><div class="draft">thinking…</div></div>`;
+  const thread = $('tutorThread');
+  thread.insertAdjacentHTML('beforeend', `<div class="demo-who customer"><span class="dot"></span>customer</div><div class="cust-msg">${esc(q)}</div>`);
+  const turn = document.createElement('div');
+  turn.className = 'tutor-answer';
+  turn.innerHTML = `<div class="demo-who clerk"><span class="dot"></span>clerk drafts</div><div class="draft">thinking…</div>`;
+  thread.appendChild(turn);
+  turn.scrollIntoView({ block: 'nearest', behavior: REDUCED ? 'auto' : 'smooth' });
   try {
-    const r = await trainFetch('/api/train/ask', { method: 'POST', body: JSON.stringify({ question: q }) });
-    box.innerHTML = `
-      <div class="tutor-answer">
-        <div class="demo-who clerk"><span class="dot"></span>clerk drafts</div>
-        <div class="draft">${esc(r.draft)}</div>
-        <div class="demo-conf"><span>confidence</span><div class="bar"><span style="width:${r.confidence}%"></span></div><span>${Math.round(r.confidence)}%</span></div>
-        <div class="tutor-verdict">
-          <button class="btn primary" data-verdict="good">👍 Good answer</button>
-          <button class="btn ghost" data-verdict="corrected">👎 Needs work</button>
-        </div>
-        <div class="tutor-fix" id="tutorFix">
-          <div class="field"><label>How should Clerk have answered?</label><textarea id="tutorCorrection" rows="3"></textarea></div>
-          <button class="btn violet" id="tutorSaveFix">Save correction</button>
-        </div>
+    const r = await trainFetch('/api/train/ask', { method: 'POST', body: JSON.stringify({ question: q, sessionId: tutorSessionId }) });
+    tutorSessionId = r.sessionId;
+    turn.innerHTML = `
+      <div class="demo-who clerk"><span class="dot"></span>clerk drafts</div>
+      <div class="draft">${esc(r.draft)}</div>
+      <div class="demo-conf"><span>confidence</span><div class="bar"><span style="width:${r.confidence}%"></span></div><span>${Math.round(r.confidence)}%</span></div>
+      <div class="tutor-verdict">
+        <button class="btn primary" data-verdict="good">👍 Good answer</button>
+        <button class="btn ghost" data-verdict="corrected">👎 Needs work</button>
+      </div>
+      <div class="tutor-fix">
+        <div class="field"><label>How should Clerk have answered?</label><textarea class="tutor-correction" rows="3"></textarea></div>
+        <button class="btn violet tutor-save-fix">Save correction</button>
       </div>`;
-    wireTutorAnswer(r.turnId);
+    wireTutorAnswer(turn, r.turnId);
+    $('tutorQ').value = '';
   } catch (e) {
-    box.innerHTML = `<div class="tutor-answer"><span style="color:var(--gold);font-size:12px">${esc(e.error || e.message || 'Clerk could not draft a reply.')}</span></div>`;
+    turn.innerHTML = `<span style="color:var(--gold);font-size:12px">${esc(e.error || e.message || 'Clerk could not draft a reply.')}</span>`;
   }
 };
-function wireTutorAnswer(turnId) {
-  const box = $('tutorAnswer');
-  box.querySelectorAll('[data-verdict]').forEach(b => b.onclick = async () => {
-    if (b.dataset.verdict === 'corrected') { $('tutorFix').classList.add('on'); return; }
-    await gradeTurn(turnId, 'good');
+$('tutorNewBtn').onclick = () => {
+  tutorSessionId = null;
+  $('tutorThread').innerHTML = '';
+  $('tutorQ').value = '';
+  $('tutorQ').focus();
+};
+function wireTutorAnswer(turn, turnId) {
+  turn.querySelectorAll('[data-verdict]').forEach(b => b.onclick = async () => {
+    if (b.dataset.verdict === 'corrected') { turn.querySelector('.tutor-fix').classList.add('on'); return; }
+    await gradeTurn(turn, turnId, 'good');
   });
-  const saveBtn = $('tutorSaveFix');
+  const saveBtn = turn.querySelector('.tutor-save-fix');
   if (saveBtn) saveBtn.onclick = async () => {
-    const fix = $('tutorCorrection').value.trim();
+    const fix = turn.querySelector('.tutor-correction').value.trim();
     if (!fix) return;
-    await gradeTurn(turnId, 'corrected', fix);
+    await gradeTurn(turn, turnId, 'corrected', fix);
   };
 }
-async function gradeTurn(turnId, verdict, correction) {
-  const box = $('tutorAnswer');
+async function gradeTurn(turn, turnId, verdict, correction) {
   try {
     await trainFetch('/api/train/feedback', { method: 'POST', body: JSON.stringify({ turnId, verdict, correction }) });
     const note = verdict === 'good' ? '✓ marked good — reinforced as-is.' : '✓ correction saved — Clerk will draw on this next time.';
-    box.querySelector('.tutor-answer').insertAdjacentHTML('beforeend', `<div class="tutor-graded">⛓ ${note}</div>`);
-    box.querySelectorAll('[data-verdict]').forEach(b => b.disabled = true);
-    if ($('tutorSaveFix')) $('tutorSaveFix').disabled = true;
-    $('tutorQ').value = '';
+    turn.insertAdjacentHTML('beforeend', `<div class="tutor-graded">⛓ ${note}</div>`);
+    turn.querySelectorAll('[data-verdict]').forEach(b => b.disabled = true);
+    const saveBtn = turn.querySelector('.tutor-save-fix');
+    if (saveBtn) saveBtn.disabled = true;
     await refreshHistory();
   } catch (e) {
     toast(e.error || e.message || 'Could not save feedback.', 'gold');
@@ -1033,6 +1066,36 @@ async function refreshHistory() {
       </div>`).join('') : '<div class="hist-empty">No tutoring turns yet — ask Clerk something above.</div>';
   } catch { hist.innerHTML = '<div class="hist-empty">Couldn\'t load history.</div>'; }
 }
+
+// --- Clerk's resolved tickets (off-chain transcript, Supabase-backed — works without a wallet too) ---
+function resolvedTicketCard(t) {
+  const when = new Date(t.createdAt).toLocaleString();
+  const msgs = t.messages.map(m => `
+      <div class="demo-who ${esc(m.role)}"><span class="dot"></span>${esc(m.role)}</div>
+      <div class="${m.role === 'customer' ? 'cust-msg' : 'draft'}">${esc(m.body)}</div>`).join('');
+  return `<div class="glass-soft resolved-card">
+    <div class="ct">#${esc(t.externalId)} <span class="chip">${Math.round((t.confidence ?? 0))}% confidence · ${esc(t.sourceUsed || 'none')}</span></div>
+    <div class="resline">${t.turnCount ?? msgs.length} turn${(t.turnCount ?? 0) === 1 ? '' : 's'} · ${when}</div>
+    ${msgs}
+  </div>`;
+}
+async function refreshResolvedTickets() {
+  const list = $('resolvedList');
+  const status = $('resolvedStatus');
+  status.textContent = 'loading…';
+  try {
+    const r = await trainFetch('/api/train/resolved-tickets?limit=50');
+    const tickets = r.tickets || [];
+    list.innerHTML = tickets.length ? tickets.map(resolvedTicketCard).join('')
+      : '<div class="empty" style="margin:26px">No tickets resolved by Clerk yet.</div>';
+    status.textContent = `${tickets.length} resolved · updated ${new Date().toLocaleTimeString()}`;
+  } catch (e) {
+    list.innerHTML = '<div class="empty" style="margin:26px">Couldn\'t load resolved tickets.</div>';
+    status.textContent = '';
+  }
+}
+$('resolvedRefreshBtn').onclick = refreshResolvedTickets;
+setInterval(() => { if (currentTab === 'resolved') refreshResolvedTickets(); }, 5 * 60 * 1000);
 
 // ================== ONBOARDING — connect ==================
 let obBusy = false;

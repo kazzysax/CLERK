@@ -143,11 +143,12 @@ export async function handleReply(ctx, merchantId, externalId, replyText) {
   const qEmbedding = await embed(replyText);
   const { data: chunks } = await supabase.rpc("match_chunks", { p_merchant: merchantId, query_embedding: qEmbedding, match_count: 5 });
   const { data: tonep } = await supabase.from("tone_profiles").select("profile").eq("merchant_id", merchantId).maybeSingle();
+  const { data: principles } = await supabase.from("reply_principles").select("principle").eq("merchant_id", merchantId).order("created_at", { ascending: false }).limit(5);
 
-  // Feed the running thread as "exemplars" context slot so the draft is coherent with what was already said.
+  // threadText already carries conversation continuity; principles add cross-ticket learned logic on top.
   const result = await draftWithConfidence(
     `${threadText}\n\nLatest customer message to answer: ${replyText}`,
-    chunks ?? [], tonep?.profile, []
+    chunks ?? [], tonep?.profile, principles ?? []
   );
   const { data: cal } = await supabase.from("calibration_state").select("auto_send_threshold").eq("merchant_id", merchantId).maybeSingle();
   const threshold = Number(cal?.auto_send_threshold ?? 80);

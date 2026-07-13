@@ -38,7 +38,7 @@ import { ethers } from "ethers";
 import { readFileSync } from "fs";
 import { planSwapToOKB, getQuote, isConfigured as swapConfigured } from "./swap.mjs";
 import { net, TOKENS } from "./xlayer.config.mjs";
-import { handleReply } from "./conversation.mjs";
+import { handleReply, threadToContext } from "./conversation.mjs";
 import {
   openSession, handleWidgetMessage, learnFromHuman, provisionWidget,
   merchantByPublicKey, publicWidgetConfig, installSnippet,
@@ -265,13 +265,13 @@ function validateDraft(raw) {
   return { draft: parsed.draft.trim(), confidence, sourceUsed: String(parsed.source_used ?? "none") };
 }
 
-async function draftWithConfidence(message, chunks, tone, exemplars) {
+async function draftWithConfidence(message, chunks, tone, principles) {
   const context = chunks.map((c, i) => `[${i + 1}] ${c.content}`).join("\n");
-  const fewShot = exemplars.map(e => `Customer: ${e.customer_message}\nReply: ${e.human_reply}`).join("\n---\n");
+  const principleBlock = (principles || []).map(p => `- ${p.principle}`).join("\n");
   const prompt =
 `You are Clerk, this business's support agent.
 BUSINESS VOICE: ${tone ?? "professional, warm, concise"}
-EXAMPLES:\n${fewShot || "(none yet)"}
+LEARNED PRINCIPLES (apply the reasoning below; do NOT reuse any specific wording — write your own original phrasing):\n${principleBlock || "(none yet)"}
 KNOWLEDGE (only source of truth — if it doesn't answer the question, say so):\n${context || "(no relevant knowledge found)"}
 CUSTOMER: ${scrubPII(message)}
 Respond ONLY with JSON: {"draft":"...","confidence":0-100,"source_used":"which [n], or 'none'"}
@@ -343,9 +343,9 @@ async function handleTicket(merchantId, externalId, customerMessage) {
   const qEmbedding = await embed(customerMessage);
   const { data: chunks } = await supabase.rpc("match_chunks", { p_merchant: merchantId, query_embedding: qEmbedding, match_count: 5 });
   const { data: tonep } = await supabase.from("tone_profiles").select("profile").eq("merchant_id", merchantId).maybeSingle();
-  const { data: exemplars } = await supabase.from("exemplar_replies").select("customer_message, human_reply").eq("merchant_id", merchantId).limit(3);
+  const { data: principles } = await supabase.from("reply_principles").select("principle").eq("merchant_id", merchantId).order("created_at", { ascending: false }).limit(5);
 
-  const result = await draftWithConfidence(customerMessage, chunks ?? [], tonep?.profile, exemplars ?? []);
+  const result = await draftWithConfidence(customerMessage, chunks ?? [], tonep?.profile, principles ?? []);
   const { data: cal } = await supabase.from("calibration_state").select("auto_send_threshold").eq("merchant_id", merchantId).maybeSingle();
   const threshold = Number(cal?.auto_send_threshold ?? 80);
 
@@ -404,7 +404,7 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: "256kb", verify: (req, _res, buf) => { req.rawBody = buf; } }));
 
 const widgetCtx = () => ({
-  supabase, send, embed, draftWithConfidence, assignToHuman, log,
+  supabase, send, embed, draftWithConfidence, assignToHuman, log, llm,
   publicBaseUrl: ENV.PUBLIC_BASE_URL,
 });
 
@@ -762,27 +762,48 @@ app.get("/api/train/documents", requireTrainAuth, rateLimit(30), async (req, res
   }
 });
 
-/** Merchant asks Clerk a rehearsal question — runs the exact production draft path, nothing sent to a customer. */
+/** Turn prior tutor_turns rows into {role, body} messages, in thread order — feeds threadToContext(). */
+function tutorTurnsToMessages(turns) {
+  const msgs = [];
+  for (const t of turns) {
+    msgs.push({ role: "customer", body: t.question });
+    msgs.push({ role: "clerk", body: (t.verdict === "corrected" && t.correction) ? t.correction : t.draft });
+  }
+  return msgs;
+}
+
+/** Merchant asks Clerk a rehearsal question — runs the exact production draft path, nothing sent to a customer.
+ *  Multi-turn: pass the sessionId returned by a prior call to continue the same rehearsal conversation. */
 app.post("/api/train/ask", requireTrainAuth, rateLimit(20), async (req, res) => {
   try {
     const question = String(req.body.question || "").trim();
     if (!question) return res.status(400).json({ error: "question required" });
+    const sessionId = req.body.sessionId || crypto.randomUUID();
+
+    let message = question;
+    if (req.body.sessionId) {
+      const { data: priorTurns } = await supabase.from("tutor_turns")
+        .select("question, draft, verdict, correction")
+        .eq("merchant_id", req.merchant.id).eq("session_id", sessionId).order("created_at", { ascending: true });
+      const threadText = threadToContext(tutorTurnsToMessages(priorTurns ?? []), 8);
+      if (threadText) message = `${threadText}\n\nLatest customer message to answer: ${question}`;
+    }
 
     const qEmbedding = await embed(question);
     const { data: chunks } = await supabase.rpc("match_chunks", { p_merchant: req.merchant.id, query_embedding: qEmbedding, match_count: 5 });
     const { data: tonep } = await supabase.from("tone_profiles").select("profile").eq("merchant_id", req.merchant.id).maybeSingle();
-    const { data: exemplars } = await supabase.from("exemplar_replies").select("customer_message, human_reply").eq("merchant_id", req.merchant.id).limit(3);
+    const { data: principles } = await supabase.from("reply_principles").select("principle").eq("merchant_id", req.merchant.id).order("created_at", { ascending: false }).limit(5);
 
-    const result = await draftWithConfidence(question, chunks ?? [], tonep?.profile, exemplars ?? []);
+    const result = await draftWithConfidence(message, chunks ?? [], tonep?.profile, principles ?? []);
     if (!result) return res.status(502).json({ error: "Clerk couldn't draft a reply, try again" });
 
     const { data: turn, error } = await supabase.from("tutor_turns").insert({
-      merchant_id: req.merchant.id, question, draft: result.draft,
+      merchant_id: req.merchant.id, session_id: sessionId, question, draft: result.draft,
       confidence: result.confidence, source_used: result.sourceUsed,
     }).select().single();
     if (error) throw error;
 
-    res.json({ turnId: turn.id, draft: result.draft, confidence: result.confidence, sourceUsed: result.sourceUsed });
+    res.json({ turnId: turn.id, sessionId, draft: result.draft, confidence: result.confidence, sourceUsed: result.sourceUsed });
   } catch (e) {
     log("error", "train ask failed", { err: e.message });
     res.status(500).json({ error: "internal" });
@@ -823,12 +844,50 @@ app.post("/api/train/feedback", requireTrainAuth, rateLimit(30), async (req, res
 
 app.get("/api/train/history", requireTrainAuth, rateLimit(30), async (req, res) => {
   try {
-    const { data } = await supabase.from("tutor_turns")
-      .select("id, question, draft, confidence, verdict, correction, created_at")
-      .eq("merchant_id", req.merchant.id).order("created_at", { ascending: false }).limit(20);
+    const sessionId = req.query.sessionId ? String(req.query.sessionId) : null;
+    let q = supabase.from("tutor_turns")
+      .select("id, session_id, question, draft, confidence, verdict, correction, created_at")
+      .eq("merchant_id", req.merchant.id);
+    q = sessionId ? q.eq("session_id", sessionId).order("created_at", { ascending: true }) : q.order("created_at", { ascending: false }).limit(20);
+    const { data } = await q;
     res.json({ turns: data || [] });
   } catch (e) {
     log("error", "train history failed", { err: e.message });
+    res.status(500).json({ error: "internal" });
+  }
+});
+
+/** Every ticket Clerk resolved, with the exact transcript — off-chain content the dashboard's Live queue (onchain-only) can't show. */
+app.get("/api/train/resolved-tickets", requireTrainAuth, rateLimit(30), async (req, res) => {
+  try {
+    const merchantId = req.merchant.id;
+    const limit = Math.min(parseInt(req.query.limit) || 50, 100);
+    const { data: tickets, error } = await supabase.from("tickets")
+      .select("id,external_id,ticket_hash,confidence,source_used,created_at,turn_count")
+      .eq("merchant_id", merchantId).eq("resolved_by_clerk", true)
+      .order("created_at", { ascending: false }).limit(limit);
+    if (error) throw error;
+
+    const hashes = tickets.map(t => t.ticket_hash);
+    const byHash = {};
+    if (hashes.length) {
+      const { data: msgs } = await supabase.from("ticket_messages")
+        .select("ticket_hash,role,body,created_at")
+        .eq("merchant_id", merchantId).in("ticket_hash", hashes)
+        .order("created_at", { ascending: true });
+      for (const m of msgs || []) (byHash[m.ticket_hash] ??= []).push(m);
+    }
+
+    res.json({
+      tickets: tickets.map(t => ({
+        id: t.id, externalId: t.external_id, ticketHash: t.ticket_hash,
+        confidence: t.confidence, sourceUsed: t.source_used, createdAt: t.created_at,
+        turnCount: t.turn_count,
+        messages: (byHash[t.ticket_hash] || []).map(m => ({ role: m.role, body: m.body, createdAt: m.created_at })),
+      })),
+    });
+  } catch (e) {
+    log("error", "resolved tickets failed", { err: e.message });
     res.status(500).json({ error: "internal" });
   }
 });

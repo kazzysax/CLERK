@@ -593,6 +593,7 @@ app.post("/api/widget/session", rateLimit(60), async (req, res) => {
       publicKey: req.body.publicKey,
       visitorId: req.body.visitorId,
       pageUrl: req.body.pageUrl,
+      sessionToken: req.body.sessionToken,
       origin,
     });
     res.json(out);
@@ -857,6 +858,56 @@ app.get("/api/train/history", requireTrainAuth, rateLimit(30), async (req, res) 
   }
 });
 
+/** Merchant replies to a ticket Clerk couldn't close on its own — the dashboard-native counterpart to /webhooks/resolved-by-human. */
+app.post("/api/train/reply", requireTrainAuth, rateLimit(30), async (req, res) => {
+  try {
+    const ticketHash = String(req.body.ticketHash || "").trim();
+    const reply = String(req.body.reply || "").trim();
+    if (!ticketHash || !reply) return res.status(400).json({ error: "ticketHash and reply required" });
+
+    const { data: ticket } = await supabase.from("tickets").select("*")
+      .eq("merchant_id", req.merchant.id).eq("ticket_hash", ticketHash).maybeSingle();
+    if (!ticket) return res.status(404).json({ error: "unknown ticket" });
+
+    const { data: custMsgs } = await supabase.from("ticket_messages")
+      .select("body").eq("ticket_hash", ticketHash).eq("role", "customer")
+      .order("created_at", { ascending: false }).limit(1);
+    const customerMessage = custMsgs?.[0]?.body || "(no customer message on file)";
+
+    const { data: shadows } = await supabase.from("shadow_drafts")
+      .select("clerk_draft, confidence").eq("ticket_hash", ticketHash)
+      .order("created_at", { ascending: false }).limit(1);
+    const shadow = shadows?.[0];
+
+    const { data: session } = await supabase.from("widget_sessions")
+      .select("id").eq("ticket_hash", ticketHash).eq("merchant_id", req.merchant.id).maybeSingle();
+
+    try {
+      if (req.merchant.wallet_address) {
+        await send(`assist ${ticket.external_id}`, "submitResolution", ticketHash, Math.round((ticket.confidence ?? 0) * 100), false);
+      }
+    } catch (e) {
+      log("warn", "dashboard reply chain submit skipped", { err: e.message });
+    }
+
+    await learnFromHuman(widgetCtx(), {
+      merchantId: req.merchant.id,
+      customerMessage,
+      humanReply: reply,
+      ticketHash,
+      sessionId: session?.id,
+      clerkDraft: shadow?.clerk_draft,
+      clerkConfidence: shadow?.confidence,
+      source: "widget_desk",
+    });
+
+    res.json({ ok: true });
+  } catch (e) {
+    log("error", "train reply failed", { err: e.message });
+    res.status(500).json({ error: "internal" });
+  }
+});
+
 /** Every ticket Clerk resolved, with the exact transcript — off-chain content the dashboard's Live queue (onchain-only) can't show. */
 app.get("/api/train/resolved-tickets", requireTrainAuth, rateLimit(30), async (req, res) => {
   try {
@@ -888,6 +939,41 @@ app.get("/api/train/resolved-tickets", requireTrainAuth, rateLimit(30), async (r
     });
   } catch (e) {
     log("error", "resolved tickets failed", { err: e.message });
+    res.status(500).json({ error: "internal" });
+  }
+});
+
+/** Tickets that went beyond Clerk and are waiting on a human — the merchant replies to these via /api/train/reply. */
+app.get("/api/train/needs-reply", requireTrainAuth, rateLimit(30), async (req, res) => {
+  try {
+    const merchantId = req.merchant.id;
+    const limit = Math.min(parseInt(req.query.limit) || 50, 100);
+    const { data: tickets, error } = await supabase.from("tickets")
+      .select("id,external_id,ticket_hash,status,confidence,source_used,created_at,turn_count")
+      .eq("merchant_id", merchantId).eq("awaiting", "human")
+      .order("created_at", { ascending: false }).limit(limit);
+    if (error) throw error;
+
+    const hashes = tickets.map(t => t.ticket_hash);
+    const byHash = {};
+    if (hashes.length) {
+      const { data: msgs } = await supabase.from("ticket_messages")
+        .select("ticket_hash,role,body,created_at")
+        .eq("merchant_id", merchantId).in("ticket_hash", hashes)
+        .order("created_at", { ascending: true });
+      for (const m of msgs || []) (byHash[m.ticket_hash] ??= []).push(m);
+    }
+
+    res.json({
+      tickets: tickets.map(t => ({
+        id: t.id, externalId: t.external_id, ticketHash: t.ticket_hash, status: t.status,
+        confidence: t.confidence, sourceUsed: t.source_used, createdAt: t.created_at,
+        turnCount: t.turn_count,
+        messages: (byHash[t.ticket_hash] || []).map(m => ({ role: m.role, body: m.body, createdAt: m.created_at })),
+      })),
+    });
+  } catch (e) {
+    log("error", "needs-reply tickets failed", { err: e.message });
     res.status(500).json({ error: "internal" });
   }
 });

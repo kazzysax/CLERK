@@ -13,6 +13,7 @@
 
 import crypto from "crypto";
 import { ethers } from "ethers";
+import { classifyReply, threadToContext } from "./conversation.mjs";
 
 const scrubPII = (text) => String(text).replace(/\b(?:\d[ -]?){13,19}\b/g, "[card removed]");
 
@@ -53,18 +54,41 @@ export function originAllowed(merchant, origin) {
 }
 
 /**
- * Start or resume a visitor session on the merchant's site.
+ * Start or resume a visitor session on the merchant's site. Passing the
+ * sessionToken a returning visitor already has (persisted client-side) is
+ * what lets them see a human's reply after they've closed and reopened the
+ * chat — without it, every open was a brand-new session with no way back
+ * to the prior thread.
  */
-export async function openSession(ctx, { publicKey, visitorId, pageUrl, origin }) {
+export async function openSession(ctx, { publicKey, visitorId, pageUrl, origin, sessionToken }) {
   const merchant = await merchantByPublicKey(ctx.supabase, publicKey);
   if (!merchant) throw Object.assign(new Error("invalid widget key"), { status: 401 });
   if (!originAllowed(merchant, origin)) throw Object.assign(new Error("origin not allowed"), { status: 403 });
 
-  const sessionToken = newToken();
-  const externalId = `widget-${sessionToken.slice(0, 12)}`;
+  if (sessionToken) {
+    const { data: existing } = await ctx.supabase.from("widget_sessions")
+      .select("*").eq("session_token", sessionToken).eq("merchant_id", merchant.id).maybeSingle();
+    if (existing) {
+      let history = [];
+      if (existing.ticket_hash) {
+        const { data: msgs } = await ctx.supabase.rpc("thread_history", { p_ticket: existing.ticket_hash });
+        history = (msgs || []).map(m => ({ role: m.role, body: m.body }));
+      }
+      return {
+        sessionToken,
+        config: publicWidgetConfig(merchant, ctx.publicBaseUrl),
+        sessionId: existing.id,
+        history,
+      };
+    }
+    // Stale/unknown token (e.g. DB reset) — fall through and mint a fresh session below.
+  }
+
+  const newSessionToken = newToken();
+  const externalId = `widget-${newSessionToken.slice(0, 12)}`;
   const row = {
     merchant_id: merchant.id,
-    session_token: sessionToken,
+    session_token: newSessionToken,
     visitor_id: visitorId || null,
     page_url: pageUrl || null,
     status: "open",
@@ -74,9 +98,10 @@ export async function openSession(ctx, { publicKey, visitorId, pageUrl, origin }
   if (error) throw error;
 
   return {
-    sessionToken,
+    sessionToken: newSessionToken,
     config: publicWidgetConfig(merchant, ctx.publicBaseUrl),
     sessionId: data.id,
+    history: [],
   };
 }
 
@@ -103,7 +128,8 @@ export async function handleWidgetMessage(ctx, { publicKey, sessionToken, messag
 
   const externalId = session.external_id || `widget-${session.id}`;
   let ticketHash = session.ticket_hash;
-  if (!ticketHash) {
+  const isFirstMessage = !ticketHash;
+  if (isFirstMessage) {
     ticketHash = ethers.keccak256(
       ethers.toUtf8Bytes(`${merchant.id}:${externalId}:${body}`)
     );
@@ -136,6 +162,71 @@ export async function handleWidgetMessage(ctx, { publicKey, sessionToken, messag
     body,
     intent: "question",
   });
+
+  // --- Beyond the first message, classify the reply the same way a real
+  // multi-turn ticket does (conversation.mjs) before deciding whether Clerk
+  // can close this on its own or needs to leave it open for a human. The
+  // first message always falls straight through to a draft — there's no
+  // thread yet to classify against. ---
+  if (!isFirstMessage) {
+    const { data: ticketRow } = await ctx.supabase.from("tickets").select("status").eq("ticket_hash", ticketHash).maybeSingle();
+    const { data: history } = await ctx.supabase.rpc("thread_history", { p_ticket: ticketHash });
+    const threadText = threadToContext(history ?? []);
+    const wasResolved = ["pending", "finalized"].includes(ticketRow?.status);
+    const intent = await classifyReply(ctx.llm, threadText, body, wasResolved);
+    await ctx.supabase.from("ticket_messages").update({ intent })
+      .eq("ticket_hash", ticketHash).eq("role", "customer").order("created_at", { ascending: false }).limit(1);
+
+    // COMPLAINT on a resolved ticket → auto-reopen, same as a real ticket. Not
+    // an "answer" being auto-sent, so this applies regardless of standby/live.
+    if (intent === "complaint" && ticketRow?.status === "pending") {
+      try {
+        if (merchant.wallet_address && ctx.send) await ctx.send(`auto-reopen ${externalId}`, "reopen", ticketHash);
+      } catch (e) {
+        ctx.log?.("warn", "widget auto-reopen chain call skipped", { err: e.message });
+      }
+      const msg = "I'm sorry that didn't resolve it — I've flagged this for a team member to take a closer look.";
+      await ctx.supabase.from("ticket_messages").insert({ merchant_id: merchant.id, ticket_hash: ticketHash, role: "clerk", body: msg });
+      await ctx.supabase.from("tickets").update({ status: "reopened", awaiting: "human" }).eq("ticket_hash", ticketHash);
+      await ctx.supabase.from("widget_sessions").update({ status: "awaiting_human", updated_at: new Date() }).eq("id", session.id);
+      await ctx.supabase.from("widget_queue").insert({ merchant_id: merchant.id, session_id: session.id, status: "open" });
+      return { action: "auto_reopened", intent, reply: msg, messages: [{ role: "clerk", body: msg }] };
+    }
+
+    // COMPLAINT that can't be auto-reopened (e.g. already finalized, window
+    // passed) → still a human's problem, never Clerk's to draft an answer to.
+    if (intent === "complaint") {
+      const msg = "I'm sorry to hear that — I've flagged this for a team member to follow up with you.";
+      await ctx.supabase.from("ticket_messages").insert({ merchant_id: merchant.id, ticket_hash: ticketHash, role: "clerk", body: msg });
+      await ctx.supabase.from("tickets").update({ awaiting: "human" }).eq("ticket_hash", ticketHash);
+      await ctx.supabase.from("widget_sessions").update({ status: "awaiting_human", updated_at: new Date() }).eq("id", session.id);
+      await ctx.supabase.from("widget_queue").insert({ merchant_id: merchant.id, session_id: session.id, status: "open" });
+      try { await ctx.assignToHuman?.(merchant, externalId, body, 0, "none"); } catch { /* optional */ }
+      return { action: "escalated_post_window", intent, reply: msg, messages: [{ role: "clerk", body: msg }] };
+    }
+
+    // THANKS → Clerk closes this itself. A courtesy acknowledgment, not a
+    // drafted answer, so it's sent even in standby mode (same as the
+    // webhook path's handleReply()).
+    if (intent === "thanks") {
+      const msg = "You're welcome — glad that helped! Reach out anytime.";
+      await ctx.supabase.from("ticket_messages").insert({ merchant_id: merchant.id, ticket_hash: ticketHash, role: "clerk", body: msg });
+      await ctx.supabase.from("tickets").update({ awaiting: null }).eq("ticket_hash", ticketHash);
+      return { action: "acknowledged", intent, reply: msg, messages: [{ role: "clerk", body: msg }] };
+    }
+
+    // OTHER / ambiguous → this goes beyond Clerk; leave the ticket open for a human.
+    if (intent === "other") {
+      const msg = "Thanks — I'm routing this to the team so a person can help with this.";
+      await ctx.supabase.from("ticket_messages").insert({ merchant_id: merchant.id, ticket_hash: ticketHash, role: "clerk", body: msg });
+      await ctx.supabase.from("tickets").update({ status: "escalated", awaiting: "human" }).eq("ticket_hash", ticketHash);
+      await ctx.supabase.from("widget_sessions").update({ status: "awaiting_human", updated_at: new Date() }).eq("id", session.id);
+      await ctx.supabase.from("widget_queue").insert({ merchant_id: merchant.id, session_id: session.id, status: "open" });
+      try { await ctx.assignToHuman?.(merchant, externalId, body, 0, "none"); } catch { /* optional */ }
+      return { action: "awaiting_human", intent, reply: msg, messages: [{ role: "clerk", body: msg }] };
+    }
+    // QUESTION or FOLLOWUP → fall through to the normal draft-and-gate path below.
+  }
 
   // --- Always draft (standby nature: never idle) ---
   let chunks = [];
@@ -377,7 +468,7 @@ export async function learnFromHuman(ctx, {
     await ctx.supabase.from("tickets").update({
       status: "pending",
       resolved_by_clerk: false,
-      awaiting: null,
+      awaiting: "customer", // a human just replied — the ball is back in the customer's court
     }).eq("ticket_hash", ticketHash);
     await ctx.supabase.from("ticket_messages").insert({
       merchant_id: merchantId,

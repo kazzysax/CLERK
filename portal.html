@@ -360,4 +360,7 @@
   $("#connectBtn").onclick = connect;
   $("#connectBtn2").onclick = connect;
   $("#registerBtn").onclick = register;
+
+  // Keep balances/tickets current without a manual reload, once connected.
+  setInterval(() => { if (ledger) refresh(); }, 60_000);
 </script>

@@ -42,6 +42,17 @@
     }
   }
 
+  // Persisted so a returning visitor resumes the SAME conversation — and
+  // sees a reply a human sent while the chat was closed — instead of
+  // silently starting a brand-new session on every page load.
+  var SESSION_KEY = "clerk_io_sid";
+  function storedSessionToken() {
+    try { return localStorage.getItem(SESSION_KEY); } catch (e) { return null; }
+  }
+  function saveSessionToken(token) {
+    try { localStorage.setItem(SESSION_KEY, token); } catch (e) { /* private mode etc — resume just won't persist */ }
+  }
+
   function api(path, body) {
     return fetch(BASE + path, {
       method: "POST",
@@ -178,8 +189,10 @@
       publicKey: KEY,
       visitorId: visitorId(),
       pageUrl: location.href,
+      sessionToken: storedSessionToken(),
     }).then(function (out) {
       state.sessionToken = out.sessionToken;
+      saveSessionToken(out.sessionToken);
       state.config = out.config || {};
       var title = document.getElementById("clerk-io-title");
       var mode = document.getElementById("clerk-io-mode");
@@ -189,7 +202,16 @@
         bubble.style.boxShadow = "0 8px 32px " + state.config.accent + "55";
       }
       if (!state.messages.length) {
-        addMsg("clerk", state.config.greeting || "Hi — how can we help?");
+        if (out.history && out.history.length) {
+          // Resuming a prior conversation — replay it, including anything a
+          // human sent while the customer was away, styled as the same
+          // "business side" bubble as Clerk's own messages.
+          out.history.forEach(function (m) {
+            addMsg(m.role === "human" ? "clerk" : m.role, m.body);
+          });
+        } else {
+          addMsg("clerk", state.config.greeting || "Hi — how can we help?");
+        }
       }
     }).catch(function (e) {
       addMsg("sys", "Could not start chat: " + e.message);

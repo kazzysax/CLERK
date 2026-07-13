@@ -207,4 +207,11 @@
   }
 
   load();
+  // Public live proof page — keep it current without a manual reload.
+  let loading = false;
+  setInterval(async () => {
+    if (loading) return;
+    loading = true;
+    try { await load(); } finally { loading = false; }
+  }, 30_000);
 </script>

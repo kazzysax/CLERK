@@ -242,18 +242,6 @@
   .stat .v.c { color: var(--cyan); } .stat .v.g { color: var(--gold); } .stat .v.m { color: var(--magenta); }
   .stat .v small { font-family: var(--body); font-size: 10px; color: var(--muted); }
 
-  .thresh { padding: 13px 14px; }
-  .thresh .tk { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 9.5px; letter-spacing: .09em; text-transform: uppercase; color: var(--muted); }
-  .thresh .tk b { color: var(--paper); }
-  .thresh .bar { height: 5px; background: var(--void-2); border-radius: 3px; margin-top: 9px; overflow: hidden; }
-  .thresh .bar .fill { height: 100%; background: linear-gradient(90deg, var(--gold), var(--cyan)); border-radius: 3px; transition: width .5s cubic-bezier(.4,0,.2,1); box-shadow: var(--glow-cyan); }
-  .thresh .note { font-size: 10px; color: var(--muted-2); margin-top: 8px; line-height: 1.5; }
-
-  .contract { padding: 13px 14px; font-family: var(--mono); }
-  .contract .crow { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted-2); padding: 2.5px 0; }
-  .contract .crow b { color: var(--muted); font-weight: 500; }
-  .contract .crow .addr { color: var(--violet); }
-
   /* main */
   .main { min-width: 0; display: flex; flex-direction: column; }
   .topbar {
@@ -384,14 +372,20 @@
   .tutor-hist-head { font-family: var(--mono); font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 22px 0 10px; padding-top: 16px; border-top: 1px solid var(--line); }
   .tutor-hist { display: flex; flex-direction: column; gap: 8px; max-height: 260px; overflow-y: auto; }
   .tutor-item { background: var(--void-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 13px; font-size: 11.5px; }
-  .tutor-item .tq { color: var(--paper); font-weight: 500; }
-  .tutor-item .ta { color: var(--muted); margin-top: 4px; line-height: 1.5; }
+  .tutor-item .tq { color: var(--paper); font-weight: 500; cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .tutor-item .tq::-webkit-details-marker { display: none; }
+  .tutor-item .tq::after { content: '⌄'; font-size: 14px; color: var(--muted-2); transition: transform .18s ease; flex-shrink: 0; }
+  .tutor-item[open] .tq::after { transform: rotate(180deg); }
+  .tutor-item .ta { color: var(--muted); margin-top: 8px; line-height: 1.5; }
   .tutor-item .tv { font-family: var(--mono); font-size: 9.5px; margin-top: 6px; display: inline-block; padding: 2px 7px; border-radius: 6px; }
 
   .resolved-list { display: flex; flex-direction: column; gap: 14px; padding: 18px 26px 40px; }
   .resolved-card { padding: 18px; display: flex; flex-direction: column; gap: 2px; }
   .resolved-card > .demo-who { margin-top: 12px; }
   .resolved-card > .cust-msg, .resolved-card > .draft { margin-bottom: 2px; }
+  .needs-reply-card { background: linear-gradient(var(--panel), var(--panel)) padding-box, linear-gradient(150deg, rgba(255,61,166,.35), rgba(124,134,173,.12) 45%, rgba(124,134,173,.12) 60%, rgba(255,61,166,.20)) border-box; border: 1px solid transparent; box-shadow: 0 0 0 1px rgba(255,61,166,.06); }
+  .needs-reply-card .reply-input { width: 100%; }
+  .needs-reply-card .reply-status { font-family: var(--mono); font-size: 10.5px; color: var(--cyan); margin-top: 8px; min-height: 14px; }
   .tutor-item .tv.good { background: var(--cyan-dim); color: var(--cyan); }
   .tutor-item .tv.corrected { background: var(--violet-dim); color: var(--violet); }
   .tutor-item .tv.pending { background: var(--gold-dim); color: var(--gold); }
@@ -561,23 +555,6 @@
       <div class="stat glass-soft"><div class="k">Solo rate</div><div class="v" id="soloRate">—</div></div>
       <div class="stat glass-soft"><div class="k">Reopened</div><div class="v m" id="reopN">0</div></div>
       <div class="stat glass-soft"><div class="k">Finalized</div><div class="v g" id="lockedOKB">0</div></div>
-      <div class="stat glass-soft"><div class="k">Fees to Clerk</div><div class="v c" id="paidOKB">none</div></div>
-    </div>
-
-    <div class="thresh glass-soft">
-      <div class="tk"><span>Auto-send threshold</span><b>private</b></div>
-      <div class="bar"><div class="fill" style="width:100%;opacity:.25"></div></div>
-      <div class="note">Calibrated per category on Clerk's backend — not public data. Publicly verifiable numbers are the reputation scores and ledger above. No OKB fee to clerk.io.</div>
-    </div>
-
-    <div class="contract glass-soft">
-      <div class="eyebrow" style="margin-bottom:8px">⛓ ClerkReputation.sol</div>
-      <div class="crow"><b>network</b><span id="cNetwork">X Layer</span></div>
-      <div class="crow"><b>chainId</b><span id="cChainId">1952</span></div>
-      <div class="crow"><b>contract</b><span class="addr" id="cAddr">—</span></div>
-      <div class="crow"><b>pricing</b><span id="cPrice">free · accuracy only</span></div>
-      <div class="crow"><b>model</b><span id="cAssist">no escrow / no OKB fees</span></div>
-      <div class="crow"><b>reopen window</b><span id="cWindow">—</span></div>
     </div>
   </aside>
 
@@ -587,6 +564,7 @@
         <button class="tab on" id="tabQueue" data-view="queue">Live queue</button>
         <button class="tab" id="tabTrain" data-view="train">Train Clerk</button>
         <button class="tab" id="tabResolved" data-view="resolved">Clerk's resolved tickets</button>
+        <button class="tab" id="tabNeedsReply" data-view="needsReply">Needs your reply</button>
       </div>
       <div class="controls" id="queueControls">
         <span class="speed" id="chainStatus">reading chain…</span>
@@ -595,6 +573,10 @@
       <div class="controls" id="resolvedControls" style="display:none">
         <span class="speed" id="resolvedStatus"></span>
         <button class="btn primary" id="resolvedRefreshBtn">↻ Refresh</button>
+      </div>
+      <div class="controls" id="needsReplyControls" style="display:none">
+        <span class="speed" id="needsReplyStatus"></span>
+        <button class="btn danger" id="needsReplyRefreshBtn">↻ Refresh</button>
       </div>
     </div>
 
@@ -653,6 +635,11 @@
     <div id="resolvedView" style="display:none">
       <p class="train-note" style="margin:18px 26px 0">Every ticket Clerk resolved on its own, with the exact transcript — what the customer said, and exactly what Clerk said back. Refreshes automatically while this tab is open.</p>
       <div class="resolved-list" id="resolvedList"></div>
+    </div>
+
+    <div id="needsReplyView" style="display:none">
+      <p class="train-note" style="margin:18px 26px 0">Tickets that went beyond Clerk — a question it couldn't confidently answer, or a complaint after a resolution. Read the thread and reply; Clerk learns from every reply you send.</p>
+      <div class="resolved-list" id="needsReplyList"></div>
     </div>
   </div>
 </div>
@@ -755,9 +742,6 @@ async function connectWallet() {
     return false;
   }
   try { reopenWindowSecs = Number(await ledger.reopenWindow()); } catch {}
-  $('cAddr') && ($('cAddr').innerHTML = `<a href="${XLAYER.explorerAddr(CONTRACT)}" target="_blank" rel="noopener">${CONTRACT.slice(0,8)}…${CONTRACT.slice(-6)}</a>`);
-  $('cWindow') && ($('cWindow').textContent = reopenWindowSecs >= 3600 ? (reopenWindowSecs/3600).toFixed(0)+'h' : reopenWindowSecs+'s');
-  $('cChainId') && ($('cChainId').textContent = String(XLAYER.chainId));
   return true;
 }
 
@@ -784,7 +768,6 @@ async function loadLive() {
   $('chainStatus').textContent = 'reading chain…';
   coreThinking(true);
 
-  const m = await ledger.merchants(account);
   const tr = await ledger.trackRecord();
 
   $('custScore').textContent = centi(tr[4]); $('custN').textContent = Number(tr[5]) + ' ratings';
@@ -793,12 +776,7 @@ async function loadLive() {
   $('reopN').textContent = Number(tr[2]);
   const total = Number(tr[0]) + Number(tr[1]);
   $('soloRate').textContent = total ? Math.round(Number(tr[0])/total*100) + '%' : '—';
-  $('paidOKB').textContent = 'none';
   $('lockedOKB').textContent = String(Number(tr[3]));
-  if (m.registered) {
-    $('cPrice').textContent = 'free · accuracy only';
-    $('cAssist').textContent = 'no escrow / no OKB fees';
-  }
 
   await loadTickets();
   $('chainStatus').textContent = 'live · X Layer';
@@ -892,11 +870,14 @@ function switchTab(view) {
   $('tabQueue').classList.toggle('on', view === 'queue');
   $('tabTrain').classList.toggle('on', view === 'train');
   $('tabResolved').classList.toggle('on', view === 'resolved');
+  $('tabNeedsReply').classList.toggle('on', view === 'needsReply');
   $('queueView').style.display = view === 'queue' ? '' : 'none';
   $('trainView').style.display = view === 'train' ? '' : 'none';
   $('resolvedView').style.display = view === 'resolved' ? '' : 'none';
+  $('needsReplyView').style.display = view === 'needsReply' ? '' : 'none';
   $('queueControls').style.display = view === 'queue' && ledger ? '' : 'none';
   $('resolvedControls').style.display = view === 'resolved' ? '' : 'none';
+  $('needsReplyControls').style.display = view === 'needsReply' ? '' : 'none';
   if (view === 'queue') {
     $('queueNoWallet').style.display = ledger ? 'none' : '';
     document.querySelector('.board').style.display = ledger ? '' : 'none';
@@ -904,10 +885,12 @@ function switchTab(view) {
   }
   if (view === 'train') { refreshDocs(); refreshHistory(); }
   if (view === 'resolved') refreshResolvedTickets();
+  if (view === 'needsReply') refreshNeedsReply();
 }
 $('tabQueue').onclick = () => switchTab('queue');
 $('tabTrain').onclick = () => switchTab('train');
 $('tabResolved').onclick = () => switchTab('resolved');
+$('tabNeedsReply').onclick = () => switchTab('needsReply');
 
 // One cache slot for whichever sign-in path is currently active (wallet or
 // Google) — a browser tab has exactly one active dashboard session at a time.
@@ -1059,11 +1042,11 @@ async function refreshHistory() {
     const r = await trainFetch('/api/train/history');
     const turns = r.turns || [];
     hist.innerHTML = turns.length ? turns.map(t => `
-      <div class="tutor-item">
-        <div class="tq">${esc(t.question)}</div>
+      <details class="tutor-item">
+        <summary class="tq">${esc(t.question)}</summary>
         <div class="ta">${esc(t.verdict === 'corrected' ? t.correction : t.draft)}</div>
         <span class="tv ${t.verdict}">${t.verdict}</span>
-      </div>`).join('') : '<div class="hist-empty">No tutoring turns yet — ask Clerk something above.</div>';
+      </details>`).join('') : '<div class="hist-empty">No tutoring turns yet — ask Clerk something above.</div>';
   } catch { hist.innerHTML = '<div class="hist-empty">Couldn\'t load history.</div>'; }
 }
 
@@ -1096,6 +1079,61 @@ async function refreshResolvedTickets() {
 }
 $('resolvedRefreshBtn').onclick = refreshResolvedTickets;
 setInterval(() => { if (currentTab === 'resolved') refreshResolvedTickets(); }, 5 * 60 * 1000);
+setInterval(() => { if (currentTab === 'queue' && ledger) loadLive(); }, 60 * 1000);
+
+// --- Needs your reply: tickets that went beyond Clerk (awaiting: 'human') ---
+function needsReplyCard(t) {
+  const when = new Date(t.createdAt).toLocaleString();
+  const msgs = t.messages.map(m => `
+      <div class="demo-who ${esc(m.role)}"><span class="dot"></span>${esc(m.role)}</div>
+      <div class="${m.role === 'customer' ? 'cust-msg' : 'draft'}">${esc(m.body)}</div>`).join('');
+  return `<div class="glass-soft resolved-card needs-reply-card" data-ticket="${esc(t.ticketHash)}">
+    <div class="ct">#${esc(t.externalId)} <span class="chip">${esc(t.status)} · ${Math.round(t.confidence ?? 0)}% confidence</span></div>
+    <div class="resline">${t.turnCount ?? msgs.length} turn${(t.turnCount ?? 0) === 1 ? '' : 's'} · ${when}</div>
+    ${msgs}
+    <div class="field" style="margin-top:12px"><label>Your reply</label><textarea class="reply-input" rows="3" placeholder="Type your reply to the customer…"></textarea></div>
+    <button class="btn violet" data-reply-btn>Send reply</button>
+    <div class="reply-status"></div>
+  </div>`;
+}
+async function refreshNeedsReply() {
+  const list = $('needsReplyList');
+  const status = $('needsReplyStatus');
+  status.textContent = 'loading…';
+  try {
+    const r = await trainFetch('/api/train/needs-reply?limit=50');
+    const tickets = r.tickets || [];
+    list.innerHTML = tickets.length ? tickets.map(needsReplyCard).join('')
+      : '<div class="empty" style="margin:26px">Nothing waiting on you — Clerk has everything covered right now.</div>';
+    status.textContent = `${tickets.length} waiting · updated ${new Date().toLocaleTimeString()}`;
+  } catch (e) {
+    list.innerHTML = '<div class="empty" style="margin:26px">Couldn\'t load tickets.</div>';
+    status.textContent = '';
+  }
+}
+$('needsReplyList').addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-reply-btn]');
+  if (!btn) return;
+  const card = btn.closest('.needs-reply-card');
+  const ticketHash = card.dataset.ticket;
+  const textarea = card.querySelector('.reply-input');
+  const status = card.querySelector('.reply-status');
+  const reply = textarea.value.trim();
+  if (!reply) return;
+  btn.disabled = true;
+  status.textContent = 'Sending…';
+  try {
+    await trainFetch('/api/train/reply', { method: 'POST', body: JSON.stringify({ ticketHash, reply }) });
+    status.textContent = '✓ sent — Clerk learned from this reply.';
+    textarea.disabled = true;
+    setTimeout(refreshNeedsReply, 1200);
+  } catch (err) {
+    status.textContent = err.error || err.message || 'Could not send reply.';
+    btn.disabled = false;
+  }
+});
+$('needsReplyRefreshBtn').onclick = refreshNeedsReply;
+setInterval(() => { if (currentTab === 'needsReply') refreshNeedsReply(); }, 5 * 60 * 1000);
 
 // ================== ONBOARDING — connect ==================
 let obBusy = false;

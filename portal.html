@@ -142,7 +142,7 @@
       <div class="big">Your support desk, <em>on X Layer</em>.</div>
       <p>Connect your wallet to register for free. clerk.io stores accuracy onchain — ratings, solo vs human, reopens — with <b style="color:var(--paper)">no OKB fee to Clerk</b>.</p>
       <button class="btn primary" id="connectBtn2">Connect wallet to begin</button>
-      <div class="muted-note">Works with OKX Wallet, MetaMask, or any injected EVM wallet. Tiny network gas in OKB may apply — that is not a Clerk fee.<br><br><b style="color:var(--gold)">OKX users:</b> turn <b>OFF Testnet Mode</b> (Settings → Preferences) before connecting — OKX treats X Layer Testnet (1952) as a mainnet network.</div>
+      <div class="muted-note">Works with OKX Wallet, MetaMask, or any injected EVM wallet. Tiny network gas in OKB may apply — that is not a Clerk fee.<br><br><b style="color:var(--gold)">OKX &amp; Zerion users:</b> turn <b>OFF Testnet Mode</b> before connecting (OKX: Settings → Preferences · Zerion: profile icon → Settings) — these wallets treat X Layer Testnet (1952) as a mainnet network and block it.</div>
     </div>
   </div>
 
@@ -196,7 +196,7 @@
 </script>
 <script type="module">
   import { ethers } from "https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.min.js";
-  import { XLAYER as XL, LEDGER_ABI, activeNet, getInjectedProvider, ensureWalletOnNet } from "./xlayer.config.mjs";
+  import { XLAYER as XL, LEDGER_ABI, activeNet, getInjectedProvider, ensureWalletOnNet, providerBrand, walletTxErrorHint } from "./xlayer.config.mjs";
 
   // ---- config, imported from the shared module (not duplicated) ----
   const net = activeNet();
@@ -214,6 +214,7 @@
   const STATUS = ["None","REGISTERED","PENDING","FINALIZED","REOPENED"];
 
   let provider, signer, account, ledger, reopenWindow = 259200n;
+  let walletBrand = "your wallet"; // set on connect; names the wallet in error hints
   const $ = s => document.querySelector(s);
   const fmt = wei => Number(ethers.formatEther(wei));
   const centi = c => (Number(c)/100).toFixed(2);
@@ -228,10 +229,11 @@
   async function connect() {
     const eth = getInjectedProvider();
     if (!eth) { toast("No EVM wallet found. Install OKX Wallet or MetaMask.", "gold"); return; }
+    walletBrand = providerBrand(eth);
     try {
       provider = new ethers.BrowserProvider(eth);
       await provider.send("eth_requestAccounts", []);
-      // X Layer Testnet (1952). OKX users: Testnet Mode must be OFF (wallet treats this chain as mainnet).
+      // X Layer Testnet (1952). OKX/Zerion users: Testnet Mode must be OFF (these wallets treat this chain as mainnet).
       await ensureWalletOnNet(eth, XLAYER.netCfg);
       provider = new ethers.BrowserProvider(eth);
       const chain = await provider.getNetwork();
@@ -342,7 +344,7 @@
   async function withTx(label, fn, kind="") {
     try { toast(`Sending ${label}…`); const tx = await fn(); toast(`${label} submitted ${txLink(tx.hash)}`, kind);
       await tx.wait(); toast(`<b>${label} confirmed</b> ${txLink(tx.hash)}`, kind); await refresh(); }
-    catch(e){ const msg = e.shortMessage || e.reason || e.message || "failed"; toast(`${label} failed: ${msg}`, "gold"); }
+    catch(e){ const msg = walletTxErrorHint(e, XLAYER.name, walletBrand) || e.shortMessage || e.reason || e.message || "failed"; toast(`${label} failed: ${msg}`, "gold"); }
   }
 
   async function register() {

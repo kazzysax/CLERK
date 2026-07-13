@@ -84,15 +84,17 @@ export function net(which) {
 }
 
 /**
- * Pick an injected EIP-1193 provider. When OKX + MetaMask both inject,
- * prefer MetaMask — OKX "Testnet Mode" blocks X Layer Testnet (chain 1952)
+ * Pick an injected EIP-1193 provider. When several wallets inject, prefer
+ * genuine MetaMask — impersonators (Zerion, Rabby, Brave all set isMetaMask)
+ * and OKX have "Testnet Mode" toggles that block X Layer Testnet (chain 1952)
  * with: "X Layer Testnet is a mainnet. Turn off Testnet Mode".
  */
 export function getInjectedProvider() {
   const eth = typeof window !== "undefined" ? window.ethereum : null;
   if (!eth) return null;
   if (Array.isArray(eth.providers) && eth.providers.length) {
-    const mm = eth.providers.find(p => p.isMetaMask && !p.isOkxWallet && !p.isOKExWallet);
+    const mm = eth.providers.find(p =>
+      p.isMetaMask && !p.isOkxWallet && !p.isOKExWallet && !p.isZerion && !p.isRabby && !p.isBraveWallet);
     if (mm) return mm;
     const okx = eth.providers.find(p => p.isOkxWallet || p.isOKExWallet || p.isOkx);
     if (okx) return okx;
@@ -101,17 +103,54 @@ export function getInjectedProvider() {
   return eth;
 }
 
-/** Human-readable fix for common wallet switch/add failures. */
-export function walletChainErrorHint(err, networkName = "X Layer Testnet") {
-  const msg = String(err?.message || err?.data?.message || err || "");
+/** Name the injected wallet so error hints can give wallet-specific fix steps. */
+export function providerBrand(p) {
+  if (!p) return "your wallet";
+  if (p.isZerion) return "Zerion";
+  if (p.isOkxWallet || p.isOKExWallet || p.isOkx) return "OKX Wallet";
+  if (p.isRabby) return "Rabby";
+  if (p.isBraveWallet) return "Brave Wallet";
+  if (p.isMetaMask) return "MetaMask";
+  return "your wallet";
+}
+
+/** Every message field an EIP-1193 / ethers v6 error may bury the real reason in. */
+function errText(e) {
+  return [e?.shortMessage, e?.reason, e?.message, e?.data?.message,
+          e?.info?.error?.message, e?.error?.message]
+    .filter(Boolean).join(" | ") || String(e || "");
+}
+
+/** Where the Testnet Mode switch lives, per wallet. */
+const TESTNET_MODE_PATHS = {
+  "Zerion":     "Zerion → your profile icon → Settings → turn OFF Testnet Mode",
+  "OKX Wallet": "OKX Wallet → Settings (⚙) → Preferences → turn OFF Testnet Mode",
+};
+
+/**
+ * Actionable message for wallet "Testnet Mode" rejections (chain switch OR
+ * transaction send — Zerion blocks at Execute time, after the switch worked).
+ * Returns null when the error isn't one we have a better message for.
+ */
+export function walletTxErrorHint(err, networkName = "X Layer Testnet", walletName = "your wallet") {
+  const msg = errText(err);
   if (/testnet mode/i.test(msg) || /is a mainnet/i.test(msg)) {
+    const path = TESTNET_MODE_PATHS[walletName] || (walletName + " settings → turn OFF Testnet Mode");
     return (
-      "OKX Wallet Testnet Mode is ON, but " + networkName + " must be used with " +
-      "Testnet Mode OFF. Open OKX Wallet → Settings (⚙) → Preferences → turn " +
-      "OFF Testnet Mode → reconnect. Or use MetaMask on chain 1952."
+      walletName + " has Testnet Mode ON but doesn't recognize " + networkName +
+      " (chain 1952) as a testnet, so it blocks it. Fix: open " + path +
+      " → reconnect and try again. Or use MetaMask on chain 1952."
     );
   }
   if (/user rejected|denied|4001/i.test(msg)) return "Wallet request was rejected.";
+  return null;
+}
+
+/** Human-readable fix for common wallet switch/add failures. */
+export function walletChainErrorHint(err, networkName = "X Layer Testnet", walletName = "your wallet") {
+  const hint = walletTxErrorHint(err, networkName, walletName);
+  if (hint) return hint;
+  const msg = errText(err);
   if (/Unrecognized chain|4902/i.test(msg)) return "Add " + networkName + " to your wallet, then try again.";
   return msg || ("Please switch your wallet to " + networkName + ".");
 }
@@ -122,6 +161,7 @@ export function walletChainErrorHint(err, networkName = "X Layer Testnet") {
  */
 export async function ensureWalletOnNet(ethereum, netCfg) {
   if (!ethereum) throw new Error("No wallet provider");
+  const brand = providerBrand(ethereum);
   const chainIdHex = netCfg.chainIdHex;
   const params = {
     chainId: chainIdHex,
@@ -134,6 +174,13 @@ export async function ensureWalletOnNet(ethereum, netCfg) {
     rpcUrls: [netCfg.rpc, netCfg.rpcFallback].filter(Boolean),
     blockExplorerUrls: [netCfg.explorer],
   };
+  // Skip the switch call if the wallet is already on the right chain — OKX
+  // Wallet is known to hang forever (never resolve, never reject) on a
+  // redundant wallet_switchEthereumChain to the chain it's already on.
+  try {
+    const current = await ethereum.request({ method: "eth_chainId" });
+    if (String(current).toLowerCase() === chainIdHex.toLowerCase()) return;
+  } catch { /* probe failed — fall through and attempt the switch anyway */ }
   try {
     await ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: chainIdHex }] });
     return;
@@ -145,10 +192,10 @@ export async function ensureWalletOnNet(ethereum, netCfg) {
         await ethereum.request({ method: "wallet_addEthereumChain", params: [params] });
         return;
       } catch (addErr) {
-        throw new Error(walletChainErrorHint(addErr, netCfg.name));
+        throw new Error(walletChainErrorHint(addErr, netCfg.name, brand));
       }
     }
-    throw new Error(walletChainErrorHint(e, netCfg.name));
+    throw new Error(walletChainErrorHint(e, netCfg.name, brand));
   }
 }
 

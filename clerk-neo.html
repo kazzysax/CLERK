@@ -503,6 +503,7 @@
 
         <div class="ob-status" id="obStatus"></div>
         <p class="ob-fine">No OKB fee to clerk.io, ever. If your wallet has no gas, clerk.io sends a free one-time drip automatically.</p>
+        <p class="ob-fine">Using OKX Wallet or Zerion? Turn <b>OFF Testnet Mode</b> first (OKX: Settings → Preferences · Zerion: profile → Settings) — those wallets treat X Layer Testnet (1952) as a mainnet and block it.</p>
       </div>
     </div>
 
@@ -656,7 +657,7 @@
 <script type="module">
 import { ethers } from "https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.min.js";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { XLAYER as XL, LEDGER_ABI, activeNet, getInjectedProvider, ensureWalletOnNet } from "./xlayer.config.mjs";
+import { XLAYER as XL, LEDGER_ABI, activeNet, getInjectedProvider, ensureWalletOnNet, providerBrand, walletTxErrorHint } from "./xlayer.config.mjs";
 
 // ================== CHAIN CONFIG, imported from the shared module ==================
 const net = activeNet();
@@ -673,6 +674,7 @@ const XLAYER = {
 const CONTRACT = window.CLERK_CONTRACT || "0x0000000000000000000000000000000000000000";
 const CHAIN_STATUS = ["None","REGISTERED","PENDING","FINALIZED","REOPENED"];
 let provider, signer, account, ledger, reopenWindowSecs = 259200;
+let walletBrand = "your wallet"; // set on connect; names the wallet in error hints
 
 // ================== CONTRACT-MIRRORED CONSTANTS ==================
 const REOPEN_WINDOW = 10;
@@ -713,10 +715,11 @@ const txLink = h => `<a href="${XLAYER.explorerTx(h)}" target="_blank" rel="noop
 async function connectWallet() {
   const eth = getInjectedProvider();
   if (!eth) { toast('No EVM wallet found. Install OKX Wallet or MetaMask.', 'gold'); return false; }
+  walletBrand = providerBrand(eth);
   try {
     provider = new ethers.BrowserProvider(eth);
     await provider.send('eth_requestAccounts', []);
-    // OKX: turn OFF Testnet Mode for X Layer Testnet (1952) — wallet classifies it as mainnet.
+    // OKX/Zerion: Testnet Mode must be OFF for X Layer Testnet (1952) — these wallets classify it as mainnet.
     await ensureWalletOnNet(eth, XLAYER.netCfg);
     provider = new ethers.BrowserProvider(eth);
     const chain = await provider.getNetwork();
@@ -753,7 +756,7 @@ async function withTx(label, fn, kind='') {
     toast(`<b>${label} confirmed</b> ${txLink(tx.hash)}`, kind);
     return true;
   } catch (e) {
-    const msg = e.shortMessage || e.reason || e.message || 'failed';
+    const msg = walletTxErrorHint(e, XLAYER.name, walletBrand) || e.shortMessage || e.reason || e.message || 'failed';
     toast(`${label} failed: ${msg}`, 'gold');
     return false;
   }
@@ -1056,7 +1059,10 @@ async function registerOnchainIfNeeded(statusFn) {
     const tx = await ledger.registerMerchant();
     await tx.wait();
   } catch (e) {
-    throw new Error(`Registration failed: ${e.shortMessage || e.reason || e.message}`);
+    // Zerion/OKX "Testnet Mode" rejects the tx AFTER the chain switch succeeded —
+    // surface the wallet-specific fix instead of the raw wallet error.
+    const hint = walletTxErrorHint(e, XLAYER.name, walletBrand);
+    throw new Error(hint ? hint : `Registration failed: ${e.shortMessage || e.reason || e.message}`);
   }
 }
 

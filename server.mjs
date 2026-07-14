@@ -768,6 +768,27 @@ app.post("/api/train/mode", requireTrainAuth, rateLimit(20), async (req, res) =>
   }
 });
 
+/** Self-service embed key — the signed-in-merchant counterpart to /admin/widget/provision (which still exists for manual/bulk onboarding). */
+app.get("/api/train/widget-key", requireTrainAuth, rateLimit(30), async (req, res) => {
+  const key = req.merchant.widget_public_key;
+  res.json({
+    publicKey: key || null,
+    installSnippet: key ? installSnippet(ENV.PUBLIC_BASE_URL, key) : null,
+  });
+});
+app.post("/api/train/widget-key", requireTrainAuth, rateLimit(10), async (req, res) => {
+  try {
+    const out = await provisionWidget(widgetCtx(), {
+      merchantId: req.merchant.id,
+      mode: req.merchant.mode || "standby", // forward current mode — provisionWidget defaults to standby otherwise, which would silently reset Clerk Active back to Learn
+    });
+    res.json(out);
+  } catch (e) {
+    log("error", "widget key self-provision failed", { err: e.message });
+    res.status(e.status || 500).json({ error: e.message || "internal" });
+  }
+});
+
 app.get("/api/train/documents", requireTrainAuth, rateLimit(30), async (req, res) => {
   try {
     const { data } = await supabase.from("documents")

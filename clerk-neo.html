@@ -455,6 +455,7 @@
   .onchain-note .fn { color: var(--violet); }
 
   .toast-wrap { position: fixed; bottom: 20px; left: 340px; z-index: 60; display: flex; flex-direction: column; gap: 8px; }
+  .add-to-site-fab { position: fixed; bottom: 24px; right: 24px; z-index: 70; text-decoration: none; box-shadow: 0 8px 32px rgba(34,243,238,.35); }
   .toast {
     background: rgba(14,18,36,.92); backdrop-filter: blur(14px);
     border: 1px solid var(--line-2); border-left: 3px solid var(--cyan);
@@ -677,6 +678,7 @@
 </div>
 
 <div class="toast-wrap" id="toasts"></div>
+<a id="addToSiteBtn" href="install.html" class="btn primary add-to-site-fab" style="display:none">⬡ Add Clerk to your site</a>
 
 <script>
   // Live deploy bootstrap — flip CLERK_NETWORK to "mainnet" and update address for prod.
@@ -1294,6 +1296,7 @@ async function enterDashboard() {
   $('bizLabel').textContent = biz.name;
   dashboardEntered = true; // arms the Customer Portal poll — signed in, safe to start checking
   pollForEscalations();
+  $('addToSiteBtn').style.display = '';
   if (!ledger) {
     // No wallet yet (Google-only session) — Train Clerk works fully; the
     // queue tab and rail reputation panel show a connect-wallet prompt.

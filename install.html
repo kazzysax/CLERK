@@ -65,23 +65,47 @@
   </div>
 
   <div class="card">
-    <h2>1. Provision embed key</h2>
-    <p>Uses your admin token (same as Render <code>ADMIN_TOKEN</code>). Creates a merchant row + public widget key.</p>
-    <label>Admin token</label>
-    <input id="adminToken" type="password" placeholder="ADMIN_TOKEN" />
-    <label>Business name</label>
-    <input id="bizName" placeholder="Acme Shop" />
-    <label>Wallet address (X Layer — for escrow later)</label>
-    <input id="wallet" placeholder="0x…" />
-    <label>Mode</label>
-    <select id="mode">
-      <option value="standby" selected>standby (learn only — recommended start)</option>
-      <option value="live">live (auto-reply when confident)</option>
-    </select>
-    <label>Allowed origins (optional, comma-separated; empty = any)</label>
-    <input id="origins" placeholder="https://yoursite.com, https://www.yoursite.com" />
-    <button class="btn" id="provBtn">Generate install snippet</button>
-    <div id="provOut"></div>
+    <h2>1. Get your install snippet</h2>
+
+    <div id="selfServeSignedIn" style="display:none">
+      <p id="selfServeIntro">Checking your account…</p>
+      <div id="selfServeExisting" style="display:none">
+        <p>Your embed key is ready — the snippet below is already yours. Paste it on your site.</p>
+        <button class="btn" id="regenBtn" type="button">Regenerate key</button>
+        <div id="regenStatus" class="ok"></div>
+      </div>
+      <div id="selfServeNew" style="display:none">
+        <p>You're signed in — one click, no admin token needed.</p>
+        <button class="btn" id="genBtn">Generate my install snippet</button>
+        <div id="genStatus" class="ok"></div>
+      </div>
+    </div>
+
+    <div id="selfServeSignedOut" style="display:none">
+      <p>Sign in to your dashboard first, then come back to this page — we'll recognize your session automatically and hand you a snippet with one click.</p>
+      <a class="btn" href="clerk-neo.html">Open your dashboard →</a>
+      <details style="margin-top:18px">
+        <summary style="cursor:pointer;color:var(--violet);font-size:13px">Have an admin token instead?</summary>
+        <div style="margin-top:14px">
+          <p>Uses your admin token (same as Render <code>ADMIN_TOKEN</code>). Creates a merchant row + public widget key.</p>
+          <label>Admin token</label>
+          <input id="adminToken" type="password" placeholder="ADMIN_TOKEN" />
+          <label>Business name</label>
+          <input id="bizName" placeholder="Acme Shop" />
+          <label>Wallet address (X Layer — for escrow later)</label>
+          <input id="wallet" placeholder="0x…" />
+          <label>Mode</label>
+          <select id="mode">
+            <option value="standby" selected>standby (learn only — recommended start)</option>
+            <option value="live">live (auto-reply when confident)</option>
+          </select>
+          <label>Allowed origins (optional, comma-separated; empty = any)</label>
+          <input id="origins" placeholder="https://yoursite.com, https://www.yoursite.com" />
+          <button class="btn" id="provBtn">Generate install snippet</button>
+          <div id="provOut"></div>
+        </div>
+      </details>
+    </div>
   </div>
 
   <div class="card">
@@ -122,6 +146,68 @@ Authorization: Bearer ADMIN_TOKEN
 </div>
 <script>
 const base = location.origin;
+const TRAIN_TOKEN_KEY = 'clerk_train_token';
+
+async function trainKeyFetch(path, opts, token) {
+  const res = await fetch(base + path, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token, ...((opts && opts.headers) || {}) },
+  });
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(j.error || res.statusText);
+  return j;
+}
+
+async function initSelfServe() {
+  const token = sessionStorage.getItem(TRAIN_TOKEN_KEY);
+  if (!token) { document.getElementById('selfServeSignedOut').style.display = ''; return; }
+  document.getElementById('selfServeSignedIn').style.display = '';
+  try {
+    const r = await trainKeyFetch('/api/train/widget-key', { method: 'GET' }, token);
+    document.getElementById('selfServeIntro').style.display = 'none';
+    if (r.publicKey) {
+      document.getElementById('selfServeExisting').style.display = '';
+      document.getElementById('snippet').textContent = r.installSnippet;
+    } else {
+      document.getElementById('selfServeNew').style.display = '';
+    }
+  } catch (e) {
+    // stale/expired session token — fall back to the sign-in prompt
+    document.getElementById('selfServeSignedIn').style.display = 'none';
+    document.getElementById('selfServeSignedOut').style.display = '';
+  }
+}
+initSelfServe();
+
+document.getElementById('genBtn')?.addEventListener('click', async () => {
+  const status = document.getElementById('genStatus');
+  status.className = 'ok'; status.textContent = 'Generating…';
+  try {
+    const token = sessionStorage.getItem(TRAIN_TOKEN_KEY);
+    const r = await trainKeyFetch('/api/train/widget-key', { method: 'POST', body: '{}' }, token);
+    document.getElementById('snippet').textContent = r.installSnippet;
+    document.getElementById('selfServeNew').style.display = 'none';
+    document.getElementById('selfServeExisting').style.display = '';
+    status.textContent = '';
+  } catch (e) {
+    status.className = 'err'; status.textContent = e.message;
+  }
+});
+
+document.getElementById('regenBtn')?.addEventListener('click', async () => {
+  if (!confirm('Regenerating creates a NEW key — any site already using the old snippet will stop working until you update it there too. Continue?')) return;
+  const status = document.getElementById('regenStatus');
+  status.className = 'ok'; status.textContent = 'Regenerating…';
+  try {
+    const token = sessionStorage.getItem(TRAIN_TOKEN_KEY);
+    const r = await trainKeyFetch('/api/train/widget-key', { method: 'POST', body: '{}' }, token);
+    document.getElementById('snippet').textContent = r.installSnippet;
+    status.textContent = '✓ new key generated — update your site with the snippet below.';
+  } catch (e) {
+    status.className = 'err'; status.textContent = e.message;
+  }
+});
+
 document.getElementById('provBtn').onclick = async () => {
   const out = document.getElementById('provOut');
   out.className = '';

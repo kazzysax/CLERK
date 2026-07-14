@@ -389,6 +389,17 @@
   .portal-card { background: linear-gradient(var(--panel), var(--panel)) padding-box, linear-gradient(150deg, rgba(255,61,166,.35), rgba(124,134,173,.12) 45%, rgba(124,134,173,.12) 60%, rgba(255,61,166,.20)) border-box; border: 1px solid transparent; box-shadow: 0 0 0 1px rgba(255,61,166,.06); }
   .portal-card .reply-input { width: 100%; }
   .portal-card .reply-status { font-family: var(--mono); font-size: 10.5px; color: var(--cyan); margin-top: 8px; min-height: 14px; }
+  .mode-control { padding: 18px; }
+  .mode-title { font-family: var(--display); font-size: 14px; font-weight: 500; }
+  .mode-sub { font-size: 11.5px; color: var(--muted); margin-top: 4px; line-height: 1.5; }
+  .mode-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+  .mode-btn { text-align: left; background: var(--void-2); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; cursor: pointer; transition: all .18s; display: flex; flex-direction: column; gap: 5px; }
+  .mode-btn:hover { border-color: var(--line-2); }
+  .mode-btn.on { border-color: var(--cyan); background: var(--cyan-dim); box-shadow: 0 0 0 1px rgba(34,243,238,.25); }
+  .mode-name { font-family: var(--display); font-size: 13px; font-weight: 600; color: var(--paper); }
+  .mode-btn.on .mode-name { color: var(--cyan); }
+  .mode-desc { font-size: 10.5px; color: var(--muted); line-height: 1.5; }
+  .mode-status { font-family: var(--mono); font-size: 10.5px; color: var(--cyan); margin-top: 10px; min-height: 14px; }
   .tutor-item .tv.good { background: var(--cyan-dim); color: var(--cyan); }
   .tutor-item .tv.corrected { background: var(--violet-dim); color: var(--violet); }
   .tutor-item .tv.pending { background: var(--gold-dim); color: var(--gold); }
@@ -641,6 +652,23 @@
     </div>
 
     <div id="portalView" style="display:none">
+      <div class="mode-control glass-soft" style="margin:18px 26px 0">
+        <div class="mode-head">
+          <div class="mode-title">Clerk's mode today</div>
+          <div class="mode-sub">Either way, Clerk always defers to a human on any ticket it's already escalated to you — this only governs new conversations.</div>
+        </div>
+        <div class="mode-toggle">
+          <button class="mode-btn" id="modeLearnBtn" data-mode="standby">
+            <span class="mode-name">⬡ Clerk Learn</span>
+            <span class="mode-desc">Drafts every reply, never sends — you send, Clerk learns from every one.</span>
+          </button>
+          <button class="mode-btn" id="modeActiveBtn" data-mode="live">
+            <span class="mode-name">⬢ Clerk Active</span>
+            <span class="mode-desc">Sends confident answers on its own; anything uncertain still comes to you.</span>
+          </button>
+        </div>
+        <div class="mode-status" id="modeStatus"></div>
+      </div>
       <p class="train-note" style="margin:18px 26px 0">Tickets that went beyond Clerk — a question it couldn't confidently answer, or a complaint after a resolution. Read the thread and reply; Clerk learns from every reply you send.</p>
       <div class="resolved-list" id="portalList"></div>
     </div>
@@ -888,7 +916,7 @@ function switchTab(view) {
   }
   if (view === 'train') { refreshDocs(); refreshHistory(); }
   if (view === 'resolved') refreshResolvedTickets();
-  if (view === 'portal') refreshPortal();
+  if (view === 'portal') { refreshPortal(); refreshMode(); }
 }
 $('tabQueue').onclick = () => switchTab('queue');
 $('tabTrain').onclick = () => switchTab('train');
@@ -1137,6 +1165,33 @@ $('portalList').addEventListener('click', async (e) => {
 });
 $('portalRefreshBtn').onclick = refreshPortal;
 setInterval(() => { if (currentTab === 'portal') refreshPortal(); }, 5 * 60 * 1000);
+
+// --- Clerk Learn (standby: drafts, never sends) vs Clerk Active (live: auto-sends when confident) ---
+function setModeUI(mode) {
+  $('modeLearnBtn').classList.toggle('on', mode === 'standby');
+  $('modeActiveBtn').classList.toggle('on', mode === 'live');
+}
+async function refreshMode() {
+  try {
+    const r = await trainFetch('/api/train/mode');
+    setModeUI(r.mode);
+  } catch (e) { /* not signed in yet, or transient — leave as-is */ }
+}
+async function setMode(mode) {
+  const status = $('modeStatus');
+  status.textContent = 'Saving…';
+  try {
+    await trainFetch('/api/train/mode', { method: 'POST', body: JSON.stringify({ mode }) });
+    setModeUI(mode);
+    status.textContent = mode === 'live'
+      ? '✓ Clerk Active — resolving confident cases on its own.'
+      : '✓ Clerk Learn — drafting and learning, you send every reply.';
+  } catch (e) {
+    status.textContent = e.error || e.message || 'Could not update mode.';
+  }
+}
+$('modeLearnBtn').onclick = () => setMode('standby');
+$('modeActiveBtn').onclick = () => setMode('live');
 
 // --- Alert: a short chime, synthesized (no audio file to ship/license), the
 // moment Clerk hands a live conversation to a human — plays regardless of

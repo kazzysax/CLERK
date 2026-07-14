@@ -129,6 +129,11 @@ export async function handleWidgetMessage(ctx, { publicKey, sessionToken, messag
   const externalId = session.external_id || `widget-${session.id}`;
   let ticketHash = session.ticket_hash;
   const isFirstMessage = !ticketHash;
+  // Once a human is handling (or has ever handled) this ticket, Clerk defers to
+  // them for the rest of it — draft-only, never auto-send — regardless of the
+  // merchant's daily mode. This is the "switches to Learn temporarily" behavior:
+  // scoped to this one ticket, not a global mode flip.
+  let humanEverInvolved = false;
   if (isFirstMessage) {
     ticketHash = ethers.keccak256(
       ethers.toUtf8Bytes(`${merchant.id}:${externalId}:${body}`)
@@ -169,8 +174,9 @@ export async function handleWidgetMessage(ctx, { publicKey, sessionToken, messag
   // first message always falls straight through to a draft — there's no
   // thread yet to classify against. ---
   if (!isFirstMessage) {
-    const { data: ticketRow } = await ctx.supabase.from("tickets").select("status").eq("ticket_hash", ticketHash).maybeSingle();
+    const { data: ticketRow } = await ctx.supabase.from("tickets").select("status, awaiting").eq("ticket_hash", ticketHash).maybeSingle();
     const { data: history } = await ctx.supabase.rpc("thread_history", { p_ticket: ticketHash });
+    humanEverInvolved = ticketRow?.awaiting === "human" || (history ?? []).some(m => m.role === "human");
     const threadText = threadToContext(history ?? []);
     const wasResolved = ["pending", "finalized"].includes(ticketRow?.status);
     const intent = await classifyReply(ctx.llm, threadText, body, wasResolved);
@@ -256,7 +262,7 @@ export async function handleWidgetMessage(ctx, { publicKey, sessionToken, messag
   const threshold = Number(cal?.auto_send_threshold ?? 80);
   const mode = merchant.mode || "standby";
   const confident = result && result.confidence >= threshold;
-  const autoSend = mode === "live" && confident;
+  const autoSend = mode === "live" && confident && !humanEverInvolved;
 
   // Always store shadow draft (learning fuel even if not shown)
   if (result) {

@@ -751,6 +751,23 @@ app.post("/api/train/upload", requireTrainAuth, rateLimit(15), async (req, res) 
   }
 });
 
+/** Clerk Learn ('standby': drafts + always learns, never auto-sends) vs Clerk Active ('live': auto-sends when confident). Merchant's own daily setting. */
+app.get("/api/train/mode", requireTrainAuth, rateLimit(30), async (req, res) => {
+  res.json({ mode: req.merchant.mode || "standby" });
+});
+app.post("/api/train/mode", requireTrainAuth, rateLimit(20), async (req, res) => {
+  try {
+    const mode = String(req.body.mode || "");
+    if (!["standby", "live"].includes(mode)) return res.status(400).json({ error: "mode must be 'standby' or 'live'" });
+    const { error } = await supabase.from("merchants").update({ mode }).eq("id", req.merchant.id);
+    if (error) throw error;
+    res.json({ ok: true, mode });
+  } catch (e) {
+    log("error", "train mode update failed", { err: e.message });
+    res.status(500).json({ error: "internal" });
+  }
+});
+
 app.get("/api/train/documents", requireTrainAuth, rateLimit(30), async (req, res) => {
   try {
     const { data } = await supabase.from("documents")
